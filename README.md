@@ -4,8 +4,7 @@
 </div>
 
 <h2 align="center">Python Extend Explorer Tools</h2>
-
-<h4 align="center">マルチプラットフォームのファイラーとファイル検索ツール</h4>
+## マルチプラットフォームのファイラーとファイル検索ツール
 
 # ビルドに必要なもの
 

@@ -5,17 +5,14 @@
 
 <h2 align="center">Python Extend Explorer Tools - Multi Platform Filer & File Searching tool -</h2>
 
+<h2 align="center">Build Requirement Modules</h2>
 
-# ビルドに必要なもの
-
-・PySide6(GUIを提供してくれるやつ)
-
-・Py7zr(7Zip形式のファイル圧縮をPythonで扱うモジュール)
-
-・send2trash(削除したファイルをゴミ箱に入れてくれるモジュール)
-
-・psutil(コマンドラインツールのモジュール)
-
-・pyqtgraph(グラフ作成モジュール)
-
-・numpy
+<div align="center">
+<ul>
+	<li>PySide6</li><br>
+	<li>Py7zr<br></li><br>
+	<li>send2trash</li><br>
+	<li>psutil</li><br>
+	<li>numpy</li><br>
+</ul>
+</div>

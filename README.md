@@ -1,7 +1,7 @@
-<center>
+<div algin="center">
 	<a href="https://github.com/CrossDarkrix/PythonExtendExplorerTools">
 	<img width="200px" height="200px" alt="pyExtendTools" src="https://raw.githubusercontent.com/CrossDarkrix/PythonExtendExplorerTools/main/PyExtendToolsIcon.png"></a>
-</center>
+</div>
 
 # Python Extend Explorer Tools
 

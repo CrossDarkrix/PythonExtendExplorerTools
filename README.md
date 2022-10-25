@@ -5,7 +5,7 @@
 
 <h2 align="center">Python Extend Explorer Tools - Multi Platform Filer & File Searching tool -</h2>
 
-<h2 align="center">Build Requirement Modules</h2>
+<h2>Build Requirement Modules</h2>
 
 <div>
 	<ul>

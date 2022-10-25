@@ -3,8 +3,9 @@
 	<img width="200px" height="200px" alt="pyExtendTools" src="https://raw.githubusercontent.com/CrossDarkrix/PythonExtendExplorerTools/main/PyExtendToolsIcon.png"></a>
 </div>
 
-<h2 align="center">Python Extend Explorer Tools</h2>
-# マルチプラットフォームのファイラーとファイル検索ツール
+<h2 align="center">Python Extend Explorer Tools<div>マルチプラットフォームのファイラーとファイル検索ツール</div></h2>
+
+
 
 # ビルドに必要なもの
 

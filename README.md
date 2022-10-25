@@ -15,3 +15,14 @@
 		<li>numpy</li><br>
 	</ul>
 </div>
+
+<div>
+	<h2>ビルドに必要なモジュール</h2>
+	<ul>
+		<li>PySide6</li><br>
+		<li>Py7zr<br></li><br>
+		<li>send2trash</li><br>
+		<li>psutil</li><br>
+		<li>numpy</li><br>
+	</ul>
+</div>

@@ -5,14 +5,15 @@
 
 <h2 align="center">Python Extend Explorer Tools - Multi Platform Filer & File Searching tool -</h2>
 
-<h2 align="center">Build Requirement Modules</h2>
+<h2 align="center">Build Requirement Modules
 
-<div align="center">
-<ul>
-	<li>PySide6</li><br>
-	<li>Py7zr<br></li><br>
-	<li>send2trash</li><br>
-	<li>psutil</li><br>
-	<li>numpy</li><br>
-</ul>
-</div>
+	<div>
+		<ul>
+			<li>PySide6</li><br>
+			<li>Py7zr<br></li><br>
+			<li>send2trash</li><br>
+			<li>psutil</li><br>
+			<li>numpy</li><br>
+		</ul>
+	</div>
+</h2>

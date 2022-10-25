@@ -1,3 +1,8 @@
+<div algin="center'>
+	<a href="https://github.com/CrossDarkrix/PythonExtendExplorerTools">
+	<img alt="pyExtendTools" src="https://raw.githubusercontent.com/CrossDarkrix/PythonExtendExplorerTools/main/PyExtendToolsIcon.png"></a>
+</div>
+
 # Python Extend Explorer Tools
 
 マルチプラットフォームのファイラーとファイル検索ツール

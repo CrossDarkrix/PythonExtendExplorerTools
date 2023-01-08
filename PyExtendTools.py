@@ -2461,7 +2461,26 @@ class FileSystemListView(QListView):
 			if self.filePath(DetectFile).endswith('.tar.gz'):
 				os.makedirs(self.filePath(DetectFile).replace(os.getcwd(), os.curdir).split('.tar.gz')[0], exist_ok=True)
 				with tarfile.open(self.filePath(DetectFile), 'r') as ExtractTgz:
-					ExtractTgz.extractall(path='{}{}{}'.format(os.getcwd(), '/', self.filePath(DetectFile).split(os.getcwd())[-1].split('.tar.gz')[0]))
+	def is_within_directory(directory, target):
+		
+		abs_directory = os.path.abspath(directory)
+		abs_target = os.path.abspath(target)
+	
+		prefix = os.path.commonprefix([abs_directory, abs_target])
+		
+		return prefix == abs_directory
+	
+	def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+	
+		for member in tar.getmembers():
+			member_path = os.path.join(path, member.name)
+			if not is_within_directory(path, member_path):
+				raise Exception("Attempted Path Traversal in Tar File")
+	
+		tar.extractall(path, members, numeric_owner) 
+		
+	
+	safe_extract(ExtractTgz, path="{}{}{}".format(os.getcwd(),"/",self.filePath(DetectFile).split(os.getcwd())[-"1"].split(".tar.gz")["0"]))
 			if self.filePath(DetectFile).endswith('.7z'):
 				os.makedirs(self.filePath(DetectFile).replace(os.getcwd(), os.curdir).split('.7z')[0], exist_ok=True)
 				with py7zr.SevenZipFile(self.filePath(DetectFile), 'r') as ExtractSevenZip:

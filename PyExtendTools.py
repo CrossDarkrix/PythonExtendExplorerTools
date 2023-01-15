@@ -112,7 +112,7 @@ class Credit(QDialog):
 		self.CreditLayout.addWidget(self.OkButton, 7, 2, Qt.AlignLeft)
 		for col in range(self.CreditLayout.columnCount()):
 			self.CreditLayout.setColumnMinimumWidth(col, 10)
-		self.setMinimumWidth(630)
+		self.setMinimumWidth(660)
 		self.setMaximumWidth(700)
 		self.CreditLayout.setAlignment(Qt.AlignCenter)
 		self.setLayout(self.CreditLayout)
@@ -3668,7 +3668,7 @@ class Ui_FullTools2(object):
 		SortedNumbar[0] = '0'
 		self.SortChangeButton.pressed.connect(self.ItemSorting) #1
 		self.AboutButton = QPushButton(FullTools2)
-		self.AboutButton.setGeometry(QRect(1020, 8, 125, 20))
+		self.AboutButton.setGeometry(QRect(1000, 8, 140, 20))
 		self.AboutButton.setStyleSheet('QPushButton{background: #2d2d2d;color: #ededed;}')
 		self.AboutButton.setText('ライセンスについて')
 		self.AboutButton.clicked.connect(Credit().ShowResult)

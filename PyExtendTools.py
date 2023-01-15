@@ -3497,7 +3497,7 @@ class Ui_FullTools2(object):
 "color: White;\n"
 "}")
 		self.DiskScrollArea = QScrollArea(self.tab_3)
-		self.DiskScrollArea.setStyleSheet('QScrollArea QAbstractScrollArea{background: #1a1a1a;alternate-background: #1a1a1a;color: #1a1a1a;} QScrollArea{background: #292828;color: #ededed;}')
+		self.DiskScrollArea.setStyleSheet('QScrollArea QAbstractScrollArea{background: #1a1a1a;color: #1a1a1a;} QScrollArea{background: #292828;color: #ededed;}')
 		self.DiskScrollArea.setGeometry(QRect(620, 210, 535, 395))
 		self.DiskScrollArea.setWidget(DiskPieWidget())
 		self.DiskScrollArea.verticalScrollBar().setDisabled(True)
@@ -3558,7 +3558,7 @@ class Ui_FullTools2(object):
 		self.ClockUpdateTime.start(50)
 		self.Calender = QCalendarWidget(self.tab_3)
 		self.Calender.setObjectName('Calender')
-		self.Calender.setStyleSheet('QCalendarWidget QTableView{background: #1a1a1a;alternate-background-color: #1a1a1a;color: #ededed;} QCalendarWidget QAbstractItemView{selection-background-color: #2d2d2d;alternate-background-color: #1a1a1a;selection-color: #ededed;} QCalendarWidget QMenu{background: #1a1a1a;color: #ededed;} QCalendarWidget QToolButton{background: #1a1a1a;color: #ededed;} QCalendarWidget QWidget{background-color: #1a1a1a;alternate-background-color: #1a1a1a;color: #ededed;} QCalendarWidget QWidget{background: #1a1a1a;alternate-background-color: #1a1a1a;color: #ededed;}')
+		self.Calender.setStyleSheet('QCalendarWidget QTableView{background: #1a1a1a;color: #ededed;} QCalendarWidget QAbstractItemView{selection-background-color: #2d2d2d;selection-color: #ededed;} QCalendarWidget QMenu{background: #1a1a1a;color: #ededed;} QCalendarWidget QToolButton{background: #1a1a1a;color: #ededed;} QCalendarWidget QWidget{background-color: #1a1a1a;color: #ededed;} QCalendarWidget QWidget{background: #1a1a1a;color: #ededed;}')
 		self.Calender.setGridVisible(True)
 		self.Calender.setDateEditEnabled(False)
 		self.Calender.clicked.connect(None)
@@ -3668,7 +3668,7 @@ class Ui_FullTools2(object):
 		SortedNumbar[0] = '0'
 		self.SortChangeButton.pressed.connect(self.ItemSorting) #1
 		self.AboutButton = QPushButton(FullTools2)
-		self.AboutButton.setGeometry(QRect(1040, 8, 100, 20))
+		self.AboutButton.setGeometry(QRect(1020, 8, 125, 20))
 		self.AboutButton.setStyleSheet('QPushButton{background: #2d2d2d;color: #ededed;}')
 		self.AboutButton.setText('ライセンスについて')
 		self.AboutButton.clicked.connect(Credit().ShowResult)

@@ -3668,7 +3668,7 @@ class Ui_FullTools2(object):
 		SortedNumbar[0] = '0'
 		self.SortChangeButton.pressed.connect(self.ItemSorting) #1
 		self.AboutButton = QPushButton(FullTools2)
-		self.AboutButton.setGeometry(QRect(1053, 8, 90, 20))
+		self.AboutButton.setGeometry(QRect(1040, 8, 100, 20))
 		self.AboutButton.setStyleSheet('QPushButton{background: #2d2d2d;color: #ededed;}')
 		self.AboutButton.setText('ライセンスについて')
 		self.AboutButton.clicked.connect(Credit().ShowResult)

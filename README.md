@@ -34,5 +34,6 @@
 		<li>7-Zip Copyright (C) 1999-2010 Igor Pavlov</li><br>
 		<li>LZMA SDK Copyright (C) 1999-2010 Igor Pavlov</li><br>
 		<li>Copyright (c) 2017, Virgil Dupras</li><br>
+		<li>Copyright (c) 2009, Jay Loden, Dave Daeschler, Giampaolo Rodola</li><br>
 	</ul>
 </div>

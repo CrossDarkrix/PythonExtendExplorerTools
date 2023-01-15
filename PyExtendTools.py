@@ -3558,7 +3558,7 @@ class Ui_FullTools2(object):
 		self.ClockUpdateTime.start(50)
 		self.Calender = QCalendarWidget(self.tab_3)
 		self.Calender.setObjectName('Calender')
-		self.Calender.setStyleSheet('QCalendarWidget QTableView{background: #1a1a1a;color: #ededed;} QCalendarWidget QAbstractItemView{selection-background-color: #2d2d2d;selection-color: #ededed;} QCalendarWidget QMenu{background: #1a1a1a;color: #ededed;} QCalendarWidget QToolButton{background: #1a1a1a;color: #ededed;} QCalendarWidget QWidget{background-color: #1a1a1a;color: #ededed;} QCalendarWidget QWidget{background: #1a1a1a;color: #ededed;}')
+		self.Calender.setStyleSheet('QCalendarWidget QTableView{background: #1a1a1a;alternate-background-color: #1a1a1a;color: #ededed;} QCalendarWidget QAbstractItemView{selection-background-color: #2d2d2d;alternate-background-color: #1a1a1a;selection-color: #ededed;} QCalendarWidget QMenu{background: #1a1a1a;color: #ededed;} QCalendarWidget QToolButton{background: #1a1a1a;color: #ededed;} QCalendarWidget QWidget{background: #1a1a1a;alternate-background-color: #1a1a1a;color: #ededed;} QCalendarWidget QWidget{background: #1a1a1a;alternate-background-color: #1a1a1a;color: #ededed;}')
 		self.Calender.setGridVisible(True)
 		self.Calender.setDateEditEnabled(False)
 		self.Calender.clicked.connect(None)

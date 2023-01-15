@@ -26,3 +26,13 @@
 		<li>numpy</li><br>
 	</ul>
 </div>
+<div>
+	<h2>Licence</h2>
+	<ul>
+		<li>Copyright (C) 2019-2022 Hiroshi Miura</li><br>
+		<li>pylzma Copyright (c) 2004-2015 by Joachim Bauch<br></li><br>
+		<li>7-Zip Copyright (C) 1999-2010 Igor Pavlov</li><br>
+		<li>LZMA SDK Copyright (C) 1999-2010 Igor Pavlov</li><br>
+		<li>Copyright (c) 2017, Virgil Dupras</li><br>
+	</ul>
+</div>

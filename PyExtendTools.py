@@ -2488,21 +2488,34 @@ class FileSystemListView(QListView):
 							for TargetFolder, __, TargetFile in os.walk(self.filePath(ArchiveDFile)):
 								for TFile in TargetFile:
 									if not TFile.startswith('.'):
-										FilePaths = os.path.join(TargetFolder, TFile).replace(os.getcwd(), os.curdir)
+										FilePaths = os.path.join(TargetFolder, TFile).replace(os.getcwd().replace(os.sep, '/'), os.curdir)
 										ZF.write(FilePaths)
 				os.chdir(BackupNowPath[0])
 			if mode == 'TarArchive':
 				os.chdir(self.rootPath())
 				with tarfile.open(FileName, 'w:gz') as Tgz:
 					for TarAddFiles in self.selectedIndexes():
-						Tgz.add(self.filePath(TarAddFiles).replace(os.getcwd(), os.curdir))
+						Tgz.add(self.filePath(TarAddFiles).replace(os.getcwd().replace(os.sep, '/'), os.curdir))
 				os.chdir(BackupNowPath[0])
 			if mode == '7ZipArchive':
 				os.chdir(self.rootPath())
 				with py7zr.SevenZipFile(FileName, 'w') as SevenZipper:
 					for SevenFilesIndex in self.selectedIndexes():
-						SevenZipper.writeall(self.filePath(SevenFilesIndex).replace(os.getcwd(), os.curdir))
+						SevenZipper.writeall(self.filePath(SevenFilesIndex).replace(os.getcwd().replace(os.sep, '/'), os.curdir))
 				os.chdir(BackupNowPath[0])
+
+	def is_within_directory(self, directory, target):
+		abs_directory = os.path.abspath(directory)
+		abs_target = os.path.abspath(target)
+		prefix = os.path.commonprefix([abs_directory, abs_target])
+		return prefix == abs_directory
+
+	def safe_extract(self, tars, path='.', members=None, numeric_owner=False):
+		for member in tars.getmembers():
+			member_path = os.path.join(path, member.name)
+			if not self.is_within_directory(path, member_path):
+				raise Exception("Attempted Path Traversal in Tar File")
+		tars.extractall(path=path, members=members, numeric_owner=numeric_owner)
 
 	def OutSideUnArchive(self):
 		BackupNowPath[0] = os.getcwd()
@@ -2511,15 +2524,15 @@ class FileSystemListView(QListView):
 			if self.filePath(DetectFile).endswith('.zip'):
 				os.makedirs(self.filePath(DetectFile).replace(os.getcwd(), os.curdir).split('.zip')[0], exist_ok=True)
 				with zipfile.ZipFile(self.filePath(DetectFile), 'r') as ExtractZip:
-					ExtractZip.extractall(path='{}{}{}'.format(os.getcwd(), '/', self.filePath(DetectFile).split(os.getcwd())[-1].split('.zip')[0]))
+					ExtractZip.extractall(path='{}{}{}'.format(os.getcwd(), '/', self.filePath(DetectFile).split(os.getcwd().replace(os.sep, '/'))[-1].split('.zip')[0]))
 			if self.filePath(DetectFile).endswith('.tar.gz'):
 				os.makedirs(self.filePath(DetectFile).replace(os.getcwd(), os.curdir).split('.tar.gz')[0], exist_ok=True)
 				with tarfile.open(self.filePath(DetectFile), 'r') as ExtractTgz:
-					ExtractTgz.extractall(path='{}{}{}'.format(os.getcwd(), '/', self.filePath(DetectFile).split(os.getcwd())[-1].split('.tar.gz')[0]))
+					self.safe_extract(ExtractTgz, path='{}{}{}'.format(os.getcwd(), '/', self.filePath(DetectFile).split(os.getcwd().replace(os.sep, '/'))[-1].split('.tar.gz')[0]))
 			if self.filePath(DetectFile).endswith('.7z'):
 				os.makedirs(self.filePath(DetectFile).replace(os.getcwd(), os.curdir).split('.7z')[0], exist_ok=True)
 				with py7zr.SevenZipFile(self.filePath(DetectFile), 'r') as ExtractSevenZip:
-					ExtractSevenZip.extractall(path='{}{}{}'.format(os.getcwd(), '/', self.filePath(DetectFile).split(os.getcwd())[-1].split('.7z')[0]))
+					ExtractSevenZip.extractall(path='{}{}{}'.format(os.getcwd(), '/', self.filePath(DetectFile).split(os.getcwd().replace(os.sep, '/'))[-1].split('.7z')[0]))
 		os.chdir(BackupNowPath[0])
 
 	def dragEnterEvent(self, event):

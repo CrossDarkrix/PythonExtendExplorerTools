@@ -55,7 +55,6 @@ EditMediaPath_M4A = []
 EditMediaPath_MP3 = []
 DropedCoverImage = [u'']
 DropedCheck = [u'0']
-upDay = [datetime.datetime.now().day]
 
 try:
 	locale.setlocale(locale.LC_CTYPE, u'Japanese_Japan.932')

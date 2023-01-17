@@ -3568,6 +3568,7 @@ class Ui_FullTools2(object):
 		self.CalenderFont = QFont()
 		self.CalenderFont.setPointSize(8)
 		self.Calender.setFont(self.CalenderFont)
+		self.Calender.setUpdatesEnabled(True)
 		self.Tab3.addTab(self.tab_3, "")
 		self.tab_4 = QWidget()
 		self.tab_4.setObjectName("tab_4")
@@ -3697,6 +3698,7 @@ class Ui_FullTools2(object):
 		while True:
 			if not upDay[0] == datetime.datetime.now().day:
 				self.Calender.updateCells()
+				self.Calender.update()
 				upDay[0] = datetime.datetime.now().day
 			time.sleep(0.98)
 

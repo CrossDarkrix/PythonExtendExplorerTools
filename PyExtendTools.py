@@ -10,6 +10,7 @@ import mutagen.id3
 import mutagen.flac
 import mutagen.mp3
 import mutagen.mp4
+import multiprocessing
 import numpy
 import os
 import pathlib
@@ -25,7 +26,7 @@ import threading
 import psutil
 import zipfile
 import pyqtgraph
-from PySide6.QtCore import (QCoreApplication, QByteArray, QMetaObject, QRect, Qt, Signal, QSize, QFile, QEvent, QFileInfo, QTimer, QLocale, QThread, QDate)
+from PySide6.QtCore import (QCoreApplication, QByteArray, QMetaObject, QRect, Qt, Signal, QSize, QFile, QEvent, QFileInfo, QTimer, QLocale, QTranslator, QLibraryInfo, QThread, QDate, QObject)
 from PySide6.QtGui import (QAction, QFont, QStandardItem, QStandardItemModel, QDesktopServices, QCursor, QPixmap, QPixmapCache, QIcon, QImage, QGuiApplication, QColor)
 from PySide6.QtWidgets import (QApplication, QCheckBox, QLabel, QListView, QLineEdit, QMainWindow, QPlainTextEdit, QPushButton, QTabWidget, QTreeView, QWidget, QFileSystemModel, QMenu, QAbstractItemView, QDialog, QDialogButtonBox, QFileIconProvider, QGridLayout, QScrollArea, QCalendarWidget, QMenuBar)
 from PySide6.QtCharts import (QChart, QChartView, QPieSeries, QPieSlice)
@@ -56,6 +57,7 @@ EditMediaPath_MP3 = []
 DropedCoverImage = [u'']
 DropedCheck = [u'0']
 upDay = [datetime.datetime.now().day]
+MainThread = QThread.currentThread()
 
 try:
 	locale.setlocale(locale.LC_CTYPE, u'Japanese_Japan.932')
@@ -63,6 +65,92 @@ except:
 	locale.setlocale(locale.LC_TIME, u'ja_JP.UTF-8')
 LoadThread = concurrent.futures.ThreadPoolExecutor(os.cpu_count() * 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 * 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999)
 OutOfThread0 = QThread()
+
+class FileSearchingThread(object):
+	def __init__(self, path=None, sfile=None):
+		self.path = path
+		self.sfile = sfile
+		self.loader = QPixmapCache()
+		self.loader.clear()
+
+	def from_item_to_json(self, parent, data):
+		for c in range(len(data)):
+			path = json.loads(data[c]).get('PATH')
+			if os.path.isfile(path):
+				AcceptFileType = ('.svg', '.jpg', '.jpeg', '.png', '.bmp', '.gif', '.rgb', '.tiff', '.xbm', '.pbm', '.pgm', '.ppm')
+				try:
+					if path.lower().endswith(AcceptFileType):
+						icon = self.LoadImage(path)
+					if path.lower().endswith('.flac'):
+						icon = self.LoadFLAC(path)
+					if path.lower().endswith('.m4a'):
+						icon = self.LoadM4A(path)
+					if path.lower().endswith('.mp3'):
+						icon = self.LoadMP3(path)
+					if not path.lower().endswith(('.flac', '.m4a', '.mp3')) and not path.lower().endswith(AcceptFileType):
+						icon = QFileIconProvider().icon(QFileIconProvider.File)
+				except:
+					icon = QFileIconProvider().icon(QFileIconProvider.File)
+			else:
+				icon = QFileIconProvider().icon(QFileIconProvider.Folder)
+			c2 = QStandardItem(icon, path)
+			parent.appendRow(c2)
+
+	def LoadImage(self, path):
+		try:
+			img = QPixmap(QSize(16, 16))
+			img.load(path)
+			self.loader.insert('image:{}'.format(path), img)
+			self.loader.setCacheLimit(100)
+			return QIcon(img.scaled(16, 16))
+		except Exception as E:
+			return QIcon(QFileIconProvider().icon(QFileIconProvider.File))
+
+	def LoadFLAC(self, path):
+		try:
+			img = QPixmap(QSize(16, 16))
+			img.loadFromData(mutagen.flac.FLAC(path).pictures[0].data)
+			self.loader.insert('image:{}'.format(path), img)
+			self.loader.setCacheLimit(100)
+			return QIcon(img.scaled(16, 16))
+		except Exception as E:
+			return QFileIconProvider().icon(QFileIconProvider.File)
+
+	def LoadMP3(self, path):
+		try:
+			img = QPixmap(QSize(16, 16))
+			img.loadFromData(mutagen.mp3.MP3(path)['APIC:'].data)
+			self.loader.insert('image:{}'.format(path), img)
+			self.loader.setCacheLimit(100)
+			return QIcon(img.scaled(16, 16))
+		except Exception as E:
+			return QFileIconProvider().icon(QFileIconProvider.File)
+
+	def LoadM4A(self, path):
+		try:
+			img = QPixmap(QSize(16, 16))
+			img.loadFromData(mutagen.mp4.MP4(path)['covr'][0])
+			self.loader.insert('image:{}'.format(path), img)
+			self.loader.setCacheLimit(100)
+			return QIcon(img.scaled(16, 16))
+		except Exception as E:
+			return QFileIconProvider().icon(QFileIconProvider.File)
+
+	def Search(self):
+		self.DicFiles = []
+		for File in pathlib.Path(self.path).glob(self.sfile):
+			self.DicFiles.append(json.dumps({'PATH': '{}'.format(str(File))}, indent=2, ensure_ascii=False))
+
+	def run(self):
+		TH = concurrent.futures.ThreadPoolExecutor(os.cpu_count() * 999999999999999999999999999999999999999999999999999999999999999)
+		TH.submit(self.Search)
+		TH.shutdown()
+		self.ItemModel = QStandardItemModel()
+		TH2 = concurrent.futures.ThreadPoolExecutor(os.cpu_count()*99999999999999)
+		TH2.submit(self.from_item_to_json, self.ItemModel.invisibleRootItem(), sorted(self.DicFiles))
+		TH2.shutdown()
+		SearchWindow(model=self.ItemModel).show()
+		self.loader.clear()
 
 class Credit(QDialog):
 	def __init__(self, parent=None):
@@ -1828,7 +1916,7 @@ class EditCoverArtLabel(QLabel):
 
 	def mousePressEvent(self, event):
 		self.CopyMenu = QMenu()
-		self.CopyMenu.setStyleSheet('QMenu{background: #2d2d2d;color: #ededed;}'
+		self.CopyMenu.setStyleSheet('QMenu{background: #2d2d2d;color: #ededed;} QMenu::item{background: #2d2d2d;color: #ededed;}'
 									'QMenu::item:selected{background: #af0c00;color: #ededed;}')
 		if event.type() == QEvent.MouseButtonPress and event.button() == Qt.RightButton:
 			self.CopyMenu.addAction('カバーイメージを保存する', self.CopyImage)
@@ -1871,13 +1959,13 @@ class iconprovide(QFileIconProvider):
 		try:
 			if fileInfo.isFile():
 				if fileInfo.filePath().lower().endswith(AcceptFileType):
-					return LoadThread.submit(self.LoadImage, fileInfo.filePath()).result()
+					return self.LoadImage(fileInfo.filePath())
 				if fileInfo.filePath().lower().endswith('.flac'):
-					return QIcon(self.LoadFLAC(fileInfo.filePath()))
+					return self.LoadFLAC(fileInfo.filePath())
 				if fileInfo.filePath().lower().endswith('.m4a'):
-					return QIcon(self.LoadM4A(fileInfo.filePath()))
+					return self.LoadM4A(fileInfo.filePath())
 				if fileInfo.filePath().lower().endswith('.mp3'):
-					return QIcon(self.LoadMP3(fileInfo.filePath()))
+					return self.LoadMP3(fileInfo.filePath())
 			return QFileIconProvider.icon(self, fileInfo)
 		except:
 			return QFileIconProvider.icon(self, fileInfo)
@@ -1890,17 +1978,37 @@ class iconprovide(QFileIconProvider):
 			self.loader.setCacheLimit(100)
 			return QIcon(img.scaled(64, 64))
 		except Exception as E:
-			print(E)
-			pass
+			return QFileIconProvider().icon(QFileIconProvider.File)
 
 	def LoadFLAC(self, path):
-		return QPixmap(QSize(64, 64)).fromImage(QImage.fromData(mutagen.flac.FLAC(path).pictures[0].data))
+		try:
+			img = QPixmap(QSize(64, 64))
+			img.loadFromData(mutagen.flac.FLAC(path).pictures[0].data)
+			self.loader.insert('image:{}'.format(path), img)
+			self.loader.setCacheLimit(100)
+			return QIcon(img.scaled(64, 64))
+		except Exception as E:
+			return QFileIconProvider.icon(self, fileInfo)
 
 	def LoadMP3(self, path):
-		return QPixmap(QSize(64, 64)).fromImage(QImage.fromData(mutagen.mp3.MP3(path)['APIC:'].data))
+		try:
+			img = QPixmap(QSize(64, 64))
+			img.loadFromData(mutagen.mp3.MP3(path)['APIC:'].data)
+			self.loader.insert('image:{}'.format(path), img)
+			self.loader.setCacheLimit(100)
+			return QIcon(img.scaled(64, 64))
+		except Exception as E:
+			return QFileIconProvider.icon(self, fileInfo)
 
 	def LoadM4A(self, path):
-		return QPixmap(QSize(64, 64)).fromImage(QImage.fromData(mutagen.mp4.MP4(path)['covr'][0]))
+		try:
+			img = QPixmap(QSize(64, 64))
+			img.loadFromData(mutagen.mp4.MP4(path)['covr'][0])
+			self.loader.insert('image:{}'.format(path), img)
+			self.loader.setCacheLimit(100)
+			return QIcon(img.scaled(64, 64))
+		except Exception as E:
+			return QFileIconProvider.icon(self, fileInfo)
 
 class FileSystemListView(QListView):
 	def __init__(self, parent, model=QFileSystemModel()):
@@ -1944,7 +2052,7 @@ class FileSystemListView(QListView):
 		else:
 			self.RootPath = os.path.expanduser('~')
 		self.OutSideMenu = QMenu()
-		self.OutSideMenu.setStyleSheet('QMenu{background: #2d2d2d;color: #ededed;} QMenu::item:selected{background: #af0c00;color: #ededed;}')
+		self.OutSideMenu.setStyleSheet('QMenu{background: #2d2d2d;color: #ededed;} QMenu::item{background: #2d2d2d;color: #ededed;} QMenu::item:selected{background: #af0c00;color: #ededed;}')
 		self.OutSideMenu.setMaximumHeight(480)
 		if event.type() == QEvent.MouseButtonPress:
 			if event.button() == Qt.RightButton:
@@ -1975,7 +2083,7 @@ class FileSystemListView(QListView):
 					try:
 						if os.path.isfile(self.filePath(self.selectedIndexes()[0])) or os.path.isdir(self.filePath(self.selectedIndexes()[0])):
 							self.SendMenu = self.OutSideMenu.addMenu('送る')
-							self.SendMenu.setStyleSheet('QMenu{background: #2d2d2d;color: #ededed;} QMenu::item:selected{background: #af0c00;color: #ededed;}')
+							self.SendMenu.setStyleSheet('QMenu{background: #2d2d2d;color: #ededed;} QMenu::item{background: #2d2d2d;color: #ededed;} QMenu::item:selected{background: #af0c00;color: #ededed;}')
 							self.SendMenu.addAction('圧縮', self.OutSideArchiveCreate)
 					except:
 						pass
@@ -2630,67 +2738,113 @@ class ArchiveDialog(QDialog):
 		self.ArchiveType2.stateChanged.connect(self.CheckModes)
 		self.ArchiveType3.stateChanged.connect(self.CheckModes)
 
+	def CheckMode3(self):
+		if self.ArchiveType3.checkState() == Qt.Checked:
+			self.ArchiveType1.setCheckState(Qt.Unchecked)
+			self.ArchiveType2.setCheckState(Qt.Unchecked)
+			if not self.ArchiveInput.text() == '':
+				self.ArchiveInput.setText(
+					self.ArchiveInput.text().replace(self.ArchiveInput.text().split('.')[-1], '7z').replace('.tar', ''))
+			else:
+				self.ArchiveInput.setText('Archive.7z')
+
+	def CheckMode2(self):
+		if self.ArchiveType2.checkState() == Qt.Checked:
+			self.ArchiveType1.setCheckState(Qt.Unchecked)
+			self.ArchiveType3.setCheckState(Qt.Unchecked)
+			if not self.ArchiveInput.text() == '':
+				if self.ArchiveInput.text().split('.')[-1] == 'zip' or self.ArchiveInput.text().split('.')[-1] == '7z':
+					self.ArchiveInput.setText(
+						self.ArchiveInput.text().replace(self.ArchiveInput.text().split('.')[-1], 'tar.gz').replace(
+							'.tar.tar', ''))
+			else:
+				self.ArchiveInput.setText('Archive.tar.gz')
+
+	def CheckMode1(self):
+		if self.ArchiveType1.checkState() == Qt.Checked:
+			self.ArchiveType2.setCheckState(Qt.Unchecked)
+			self.ArchiveType3.setCheckState(Qt.Unchecked)
+			if not self.ArchiveInput.text() == '':
+				self.ArchiveInput.setText(
+					self.ArchiveInput.text().replace(self.ArchiveInput.text().split('.')[-1], 'zip').replace('.tar', ''))
+			else:
+				self.ArchiveInput.setText('Archive.zip')
+
+	def CheckModeOther0(self):
+		if self.ArchiveType1.checkState() == Qt.Unchecked and OneChecked[0] == '1':
+			self.ArchiveType1.setCheckState(Qt.Checked)
+
+	def CheckModeOther1(self):
+		if self.ArchiveType2.checkState() == Qt.Unchecked and OneChecked2[0] == '1':
+			self.ArchiveType2.setCheckState(Qt.Checked)
+
+	def CheckModeOther2(self):
+		if self.ArchiveType3.checkState() == Qt.Unchecked and OneChecked3[0] == '1':
+			self.ArchiveType3.setCheckState(Qt.Checked)
+
+	def CheckModeOther3(self):
+		if self.ArchiveType1.checkState() == Qt.Checked and OneChecked2[0] == '1':
+			OneChecked2[0] = '0'
+			OneChecked[0] = '1'
+			self.ArchiveType2.setCheckState(Qt.Unchecked)
+
+	def CheckModeOther4(self):
+		if self.ArchiveType1.checkState() == Qt.Checked and OneChecked3[0] == '1':
+			OneChecked3[0] = '0'
+			OneChecked[0] = '1'
+			self.ArchiveType3.setCheckState(Qt.Unchecked)
+
+	def CheckModeOther5(self):
+		if self.ArchiveType2.checkState() == Qt.Checked and OneChecked[0] == '1':
+			OneChecked[0] = '0'
+			OneChecked2[0] = '1'
+			self.ArchiveType1.setCheckState(Qt.Unchecked)
+
+	def CheckModeOther6(self):
+		if self.ArchiveType3.checkState() == Qt.Checked and OneChecked[0] == '1':
+			OneChecked[0] = '0'
+			OneChecked3[0] = '1'
+			self.ArchiveType1.setCheckState(Qt.Unchecked)
+
+	def CheckModeOther7(self):
+		if self.ArchiveType1.checkState() == Qt.Checked and OneChecked2[0] == '1':
+			OneChecked2[0] = '0'
+			OneChecked[0] = '1'
+			self.ArchiveType2.setCheckState(Qt.Unchecked)
+
+	def CheckModeOther8(self):
+		if self.ArchiveType3.checkState() == Qt.Checked and OneChecked2[0] == '1':
+			OneChecked2[0] = '0'
+			OneChecked3[0] = '1'
+			self.ArchiveType2.setCheckState(Qt.Unchecked)
+
+	def CheckModeOther9(self):
+		if self.ArchiveType1.checkState() == Qt.Checked and OneChecked3[0] == '1':
+			OneChecked3[0] = '0'
+			OneChecked[0] = '1'
+			self.ArchiveType3.setCheckState(Qt.Unchecked)
+
+	def CheckModeOther10(self):
+		if self.ArchiveType2.checkState() == Qt.Checked and OneChecked3[0] == '1':
+			OneChecked3[0] = '0'
+			OneChecked[0] = '1'
+			self.ArchiveType3.setCheckState(Qt.Unchecked)
+
 	def CheckModes(self):
-		try:
-			if self.ArchiveType1.checkState() == Qt.Unchecked and OneChecked[0] == '1':
-				self.ArchiveType1.setCheckState(Qt.Checked)
-			if self.ArchiveType2.checkState() == Qt.Unchecked and OneChecked2[0] == '1':
-				self.ArchiveType2.setCheckState(Qt.Checked)
-			if self.ArchiveType3.checkState() == Qt.Unchecked and OneChecked3[0] == '1':
-				self.ArchiveType3.setCheckState(Qt.Checked)
-			if self.ArchiveType1.checkState() == Qt.Checked and OneChecked2[0] == '1':
-				self.ArchiveType2.setCheckState(Qt.Unchecked)
-				OneChecked2[0] = '0'
-				OneChecked[0] = '1'
-			if self.ArchiveType1.checkState() == Qt.Checked and OneChecked3[0] == '1':
-				self.ArchiveType3.setCheckState(Qt.Unchecked)
-				OneChecked3[0] = '0'
-				OneChecked[0] = '1'
-			if self.ArchiveType2.checkState() == Qt.Checked and OneChecked[0] == '1':
-				self.ArchiveType1.setCheckState(Qt.Unchecked)
-				OneChecked[0] = '0'
-				OneChecked2[0] = '1'
-			if self.ArchiveType3.checkState() == Qt.Checked and OneChecked[0] == '1':
-				self.ArchiveType1.setCheckState(Qt.Unchecked)
-				OneChecked[0] = '0'
-				OneChecked3[0] = '1'
-			if self.ArchiveType1.checkState() == Qt.Checked and OneChecked2[0] == '1':
-				self.ArchiveType2.setCheckState(Qt.Unchecked)
-				OneChecked2[0] = '0'
-				OneChecked[0] = '1'
-			if self.ArchiveType3.checkState() == Qt.Checked and OneChecked2[0] == '1':
-				self.ArchiveType2.setCheckState(Qt.Unchecked)
-				OneChecked2[0] = '0'
-				OneChecked3[0] = '1'
-			if self.ArchiveType1.checkState() == Qt.Checked and OneChecked3[0] == '1':
-				self.ArchiveType3.setCheckState(Qt.Unchecked)
-				OneChecked3[0] = '0'
-				OneChecked[0] = '1'
-			if self.ArchiveType2.checkState() == Qt.Checked and OneChecked3[0] == '1':
-				self.ArchiveType3.setCheckState(Qt.Unchecked)
-				OneChecked3[0] = '0'
-				OneChecked[0] = '1'
-			if self.ArchiveType3.checkState() == Qt.Checked:
-				if not self.ArchiveInput.text() == '':
-					self.ArchiveInput.setText(self.ArchiveInput.text().replace(self.ArchiveInput.text().split('.')[-1], '7z').replace('.tar', ''))
-				else:
-					self.ArchiveInput.setText('Archive.7z')
-				OneChecked3[0] = '1'
-			if self.ArchiveType2.checkState() == Qt.Checked:
-				if not self.ArchiveInput.text() == '':
-					if self.ArchiveInput.text().split('.')[-1] == 'zip' or self.ArchiveInput.text().split('.')[-1] == '7z':
-						self.ArchiveInput.setText(self.ArchiveInput.text().replace(self.ArchiveInput.text().split('.')[-1], 'tar.gz').replace('.tar.tar', ''))
-				else:
-					self.ArchiveInput.setText('Archive.tar.gz')
-				OneChecked2[0] = '1'
-			if self.ArchiveType1.checkState() == Qt.Checked:
-				if not self.ArchiveInput.text() == '':
-					self.ArchiveInput.setText(self.ArchiveInput.text().replace(self.ArchiveInput.text().split('.')[-1], 'zip').replace('.tar', ''))
-				else:
-					self.ArchiveInput.setText('Archive.zip')
-				OneChecked[0] = '1'
-		except:
-			pass
+		self.CheckModeOther0()
+		self.CheckModeOther1()
+		self.CheckModeOther2()
+		self.CheckModeOther3()
+		self.CheckModeOther4()
+		self.CheckModeOther5()
+		self.CheckModeOther6()
+		self.CheckModeOther7()
+		self.CheckModeOther8()
+		self.CheckModeOther9()
+		self.CheckModeOther10()
+		self.CheckMode3()
+		self.CheckMode2()
+		self.CheckMode1()
 
 	def InputResult(self):
 		return self.ArchiveInput.text()
@@ -2717,6 +2871,7 @@ class ArchiveDialog(QDialog):
 class SearchWindow(QWidget):
 	def __init__(self, parent=None, model=None):
 		super(SearchWindow, self).__init__(parent)
+		self.setStyleSheet('QWidget{background: #292828;color: White;} QMenu{background: #2d2d2d;color: #ededed;} QMenu::item{background: #2d2d2d;color: #ededed;} QMenu::item:selected{background: #af0c00;color: #ededed;}')
 		self.w = QDialog(parent)
 		self.w.resize(QSize(1000, 700))
 		self.w.setFixedSize(QSize(1000, 700))
@@ -2737,7 +2892,7 @@ class SearchWindow(QWidget):
 
 	def CopyOnlyMenu(self, Point):
 		self.CopyMenu = QMenu()
-		self.CopyMenu.setStyleSheet('QMenu{background: #2d2d2d;color: #ededed;} QMenu::item:selected{background: #af0c00;color: #ededed;}')
+		self.CopyMenu.setStyleSheet('QMenu{background: #2d2d2d;color: #ededed;} QMenu::item{background: #2d2d2d;color: #ededed;} QMenu::item:selected{background: #af0c00;color: #ededed;}')
 		self.CopyMenu.addAction('場所のコピー', self.CopyPath)
 		self.CopyMenu.addAction('プロパティ', self.PropertyMenu)
 		self.CopyMenu.exec(self.ListView.mapToGlobal(Point))
@@ -3336,7 +3491,7 @@ class Ui_FullTools2(object):
 		if not FullTools2.objectName():
 			FullTools2.setObjectName("FullTools2")
 		FullTools2.resize(1145, 638)
-		FullTools2.setStyleSheet('QWidget{background: #292828;color: White;}')
+		FullTools2.setStyleSheet('QWidget{background: #292828;color: White;} QMenu{background: #2d2d2d;color: #ededed;} QMenu::item{background: #2d2d2d;color: #ededed;} QMenu::item:selected{background: #af0c00;color: #ededed;}')
 		self.FullTools2 = FullTools2
 		self.Tab3 = QTabWidget(FullTools2)
 		self.Tab3.setObjectName("Tab3")
@@ -3685,6 +3840,8 @@ class Ui_FullTools2(object):
 		self.UpdateCalendar = QTimer(FullTools2)
 		self.UpdateCalendar.timeout.connect(self.UpdateCalendarCell)
 		self.UpdateCalendar.start(500)
+		self.loader = QPixmapCache()
+		self.loader.clear()
 		QMetaObject.connectSlotsByName(FullTools2)
 
 	def IconSet(self, type):
@@ -3703,7 +3860,6 @@ class Ui_FullTools2(object):
 			self.Calender.update()
 			upDay[0] = datetime.datetime.now().day
 
-
 	def ClockTimeSet(self):
 		degrationSec = (datetime.datetime.now().second / 60) * 360
 		degrationMin = (datetime.datetime.now().minute / 60) * 360 + (1 /60) * 360 * (datetime.datetime.now().second / 60)
@@ -3719,6 +3875,7 @@ class Ui_FullTools2(object):
 		self.ClockShortTimeHand.setData([0, XShaftOfHour], [0, YShaftOfHour])
 
 	def OnMoveDirectory(self):
+		self.loader.clear()
 		for path in reversed(PathHistorys):
 			if not self.SubFolderTree.rootPath() == path and StopPath2[0] == '0':
 				self.SubFolderTree.setRootPath(path)
@@ -3730,6 +3887,7 @@ class Ui_FullTools2(object):
 		NowRootDirectoryPath[0] = self.SubFolderTree.rootPath()
 
 	def BackReturnDirectory(self):
+		self.loader.clear()
 		try:
 			BackPath = self.SubFolderTree.rootPath().split([p for p in self.SubFolderTree.rootPath().split('/')][-1])[0]
 		except:
@@ -3784,6 +3942,7 @@ class Ui_FullTools2(object):
 		NowRootDirectoryPath[0] = self.SubFolderTree.rootPath()
 
 	def BackHome(self):
+		self.loader.clear()
 		self.SubFolderTree.setRootPath(os.path.expanduser('~'))
 		self.SubFolderTree.setRootIndex(self.SubFolderTree.index(os.path.expanduser('~')))
 		self.PathBar.setText(self.SubFolderTree.rootPath()+'/')
@@ -3795,6 +3954,7 @@ class Ui_FullTools2(object):
 		NowRootDirectoryPath[0] = self.SubFolderTree.rootPath()
 
 	def MoveUpDiercory(self):
+		self.loader.clear()
 		try:
 			DriveLatter = os.path.splitdrive(os.environ['windir'.lower()])[0]
 		except:
@@ -3816,6 +3976,7 @@ class Ui_FullTools2(object):
 		NowRootDirectoryPath[0] = self.SubFolderTree.rootPath()
 
 	def AccessFolder(self):
+		self.loader.clear()
 		if not os.path.isfile(self.SubFolderTree.filePath(self.SubFolderTree.selectedIndexes()[0])):
 			self.SubFolderTree.setRootPath(self.SubFolderTree.filePath(self.SubFolderTree.selectedIndexes()[0]))
 			self.SubFolderTree.setRootIndex(self.SubFolderTree.index(self.SubFolderTree.filePath(self.SubFolderTree.selectedIndexes()[0])))
@@ -3876,7 +4037,7 @@ class Ui_FullTools2(object):
 
 	def FilerContextMenu(self, Point):
 		self.Menu1 = QMenu()
-		self.Menu1.setStyleSheet('QMenu{background: #2d2d2d;color: #ededed;} QMenu::item:selected{background: #af0c00;color: #ededed;}')
+		self.Menu1.setStyleSheet('QMenu{background: #2d2d2d;color: #ededed;} QMenu::item{background: #2d2d2d;color: #ededed;} QMenu::item:selected{background: #af0c00;color: #ededed;}')
 		try:
 			if os.path.isfile(self.RootFolderFileSystemModel.filePath(self.RootFolderTree.selectedIndexes()[0])):
 				self.Menu1.addAction('開く', self.OpenFile)
@@ -3987,54 +4148,9 @@ class Ui_FullTools2(object):
 		self.RootFolderTree.keyboardSearch('')
 		self.RootFolderTree.keyboardSearch(text)
 
-	def from_item_to_json(self, parent, data):
-		for c in range(len(data)):
-			path = json.loads(data[c]).get('PATH')
-			if os.path.isfile(path):
-				AcceptFileType = ('.svg', '.jpg', '.jpeg', '.png', '.bmp', '.gif', '.rgb', '.tiff', '.xbm', '.pbm', '.pgm', '.ppm')
-				try:
-					if path.lower().endswith(AcceptFileType):
-						icon = QIcon(LoadThread.submit(self.LoadImage, path).result())
-					if path.lower().endswith('.flac'):
-						icon = QIcon(self.LoadFLAC(path))
-					if path.lower().endswith('.m4a'):
-						icon = QIcon(self.LoadM4A(path))
-					if path.lower().endswith('.mp3'):
-						icon = QIcon(self.LoadMP3(path))
-					if not path.lower().endswith(('.flac', '.m4a', '.mp3')) and not path.lower().endswith(AcceptFileType):
-						icon = QFileIconProvider().icon(QFileIconProvider.File)
-				except:
-					icon = QFileIconProvider().icon(QFileIconProvider.File)
-			else:
-				icon = QFileIconProvider().icon(QFileIconProvider.Folder)
-			c2 = QStandardItem(icon, path)
-			parent.appendRow(c2)
-
-	def LoadImage(self, path):
-		try:
-			img = QPixmap(QSize(32, 32))
-			img.load(path)
-			return img
-		except:
-			pass
-
-	def LoadFLAC(self, path):
-		return QPixmap(QSize(64, 64)).fromImage(QImage.fromData(mutagen.flac.FLAC(path).pictures[0].data))
-
-	def LoadMP3(self, path):
-		return QPixmap(QSize(64, 64)).fromImage(QImage.fromData(mutagen.mp3.MP3(path)['APIC:'].data))
-
-	def LoadM4A(self, path):
-		return QPixmap(QSize(64, 64)).fromImage(QImage.fromData(mutagen.mp4.MP4(path)['covr'][0]))
-
 	def on_TextSearch5(self):
-		if not self.FileTreeSearch2.text() == '':
-			DicFiles = []
-			for File in pathlib.Path(self.SubFolderTree.rootPath()+'/').glob('**/{}'.format(self.FileTreeSearch2.text())):
-				DicFiles.append(json.dumps({'PATH': '{}'.format(str(File))}, indent=2, ensure_ascii=False))
-			self.ItemModel = QStandardItemModel()
-			self.from_item_to_json(self.ItemModel.invisibleRootItem(), sorted(DicFiles))
-			SearchWindow(model=self.ItemModel).show()
+		self.loader.clear()
+		FileSearchingThread(path=self.SubFolderTree.rootPath()+'/', sfile='**/{}'.format(self.FileTreeSearch2.text())).run()
 
 	def SelectedItem(self, index):
 		try:
@@ -4301,6 +4417,9 @@ class Ui_FullTools2(object):
 
 def main():
 	app = QApplication(sys.argv)
+	translate = QTranslator()
+	translate.load('qt_{}'.format(QLocale().system().name()), QLibraryInfo.path(QLibraryInfo.TranslationsPath))
+	app.installTranslator(translate)
 	main_window = MainWindowwView()
 	ui_window = Ui_FullTools2()
 	ui_window.setupUi(main_window)
@@ -4309,4 +4428,9 @@ def main():
 	sys.exit(app.exec())
 
 if __name__ == '__main__':
+	if platform.system() == 'Linux':
+		multiprocessing.set_start_method('fork')
+	else:
+		multiprocessing.set_start_method('spawn')
+	multiprocessing.freeze_support()
 	main()

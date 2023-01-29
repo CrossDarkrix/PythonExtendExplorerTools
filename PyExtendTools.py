@@ -5,6 +5,8 @@ import concurrent.futures
 import datetime
 import json
 import locale
+
+import PySide6.QtGui
 from mutagen.easyid3 import EasyID3
 import mutagen.id3
 import mutagen.flac
@@ -26,7 +28,7 @@ import psutil
 import zipfile
 import pyqtgraph
 from PySide6.QtCore import (QCoreApplication, QByteArray, QMetaObject, QRect, Qt, Signal, QSize, QFile, QEvent, QFileInfo, QTimer, QLocale, QTranslator, QLibraryInfo, QThread, QDate, QObject)
-from PySide6.QtGui import (QAction, QFont, QStandardItem, QStandardItemModel, QDesktopServices, QCursor, QPixmap, QPixmapCache, QIcon, QImage, QGuiApplication, QColor, QMouseEvent)
+from PySide6.QtGui import (QAction, QFont, QStandardItem, QStandardItemModel, QDesktopServices, QCursor, QPixmap, QPixmapCache, QIcon, QImage, QGuiApplication, QColor, QMouseEvent, QDropEvent)
 from PySide6.QtWidgets import (QApplication, QCheckBox, QLabel, QListView, QLineEdit, QMainWindow, QPlainTextEdit, QPushButton, QTabWidget, QTreeView, QWidget, QFileSystemModel, QMenu, QAbstractItemView, QDialog, QDialogButtonBox, QFileIconProvider, QGridLayout, QScrollArea, QCalendarWidget, QMenuBar)
 from PySide6.QtCharts import (QChart, QChartView, QPieSeries, QPieSlice)
 
@@ -2046,6 +2048,7 @@ class FileSystemListView(QListView):
 		self.Model.setRootPath(path)
 
 	def mousePressEvent(self, event):
+		super(FileSystemListView, self).mousePressEvent(event)
 		if not NowRootDirectoryPath[0] == '':
 			self.RootPath = NowRootDirectoryPath[0]
 		else:
@@ -2053,56 +2056,64 @@ class FileSystemListView(QListView):
 		self.OutSideMenu = QMenu()
 		self.OutSideMenu.setStyleSheet('QMenu{background: #2d2d2d;color: #ededed;} QMenu::item{background: #2d2d2d;color: #ededed;} QMenu::item:selected{background: #af0c00;color: #ededed;}')
 		self.OutSideMenu.setMaximumHeight(480)
-		if event.type() == QEvent.MouseButtonPress:
-			if event.button() == Qt.RightButton:
+		if event.button() == Qt.BackButton:
+			pass
+		elif event.button() == Qt.ForwardButton:
+			pass
+		elif event.button() == Qt.RightButton:
+			try:
+				for LoopIndex, FileFolderIndex in enumerate(self.selectedIndexes()):
+					if os.path.isfile(self.filePath(FileFolderIndex)) and not os.path.islink(
+							self.filePath(FileFolderIndex)) and LoopIndex == 0:
+						self.OutSideMenu.addAction('ファイルを開く', self.OutSideOpenFile)
+						self.OutSideMenu.addAction('名前の変更', self.OutSideRenames)
+					if not os.path.isfile(self.filePath(FileFolderIndex)) and not os.path.islink(
+							self.filePath(FileFolderIndex)) and LoopIndex == 0:
+						self.OutSideMenu.addAction('名前の変更', self.OutSideRenames)
+						self.OutSideMenu.addAction('フォルダを開く', self.OutSideOpenFile)
+					if os.path.isfile(self.filePath(FileFolderIndex)) and not os.path.islink(
+							self.filePath(FileFolderIndex)) and LoopIndex == 0:
+						if event.modifiers() == Qt.ShiftModifier:
+							self.OutSideMenu.addAction('完全削除', self.OutSideForceDeleting)
+						else:
+							self.OutSideMenu.addAction('削除', self.OutSideDeleting)
+						self.OutSideMenu.addAction('コピー', self.OutSideCopyFile)
+						self.OutSideMenu.addAction('移動', self.OutSideCopyFile)
+					if os.path.isfile(self.filePath(FileFolderIndex)) and LoopIndex == 0 and self.filePath(
+							FileFolderIndex).endswith('.zip') or self.filePath(FileFolderIndex).endswith(
+							'.tar.gz') or self.filePath(FileFolderIndex).endswith('.7z'):
+						self.OutSideMenu.addAction('解凍', self.OutSideUnArchive)
+					if not os.path.isfile(self.filePath(FileFolderIndex)) and not os.path.islink(
+							self.filePath(FileFolderIndex)) and LoopIndex == 0:
+						if event.modifiers() == Qt.ShiftModifier:
+							self.OutSideMenu.addAction('完全削除', self.OutSideForceDeleting)
+						else:
+							self.OutSideMenu.addAction('削除', self.OutSideDeleting)
+						self.OutSideMenu.addAction('フォルダのコピー', self.OutSideCopyFile)
+						self.OutSideMenu.addAction('フォルダの移動', self.OutSideCopyFile)
 				try:
-					for LoopIndex, FileFolderIndex in enumerate(self.selectedIndexes()):
-						if os.path.isfile(self.filePath(FileFolderIndex)) and not os.path.islink(self.filePath(FileFolderIndex)) and LoopIndex == 0:
-							self.OutSideMenu.addAction('ファイルを開く', self.OutSideOpenFile)
-							self.OutSideMenu.addAction('名前の変更', self.OutSideRenames)
-						if not os.path.isfile(self.filePath(FileFolderIndex)) and not os.path.islink(self.filePath(FileFolderIndex)) and LoopIndex == 0:
-							self.OutSideMenu.addAction('名前の変更', self.OutSideRenames)
-							self.OutSideMenu.addAction('フォルダを開く', self.OutSideOpenFile)
-						if os.path.isfile(self.filePath(FileFolderIndex)) and not os.path.islink(self.filePath(FileFolderIndex)) and LoopIndex == 0:
-							if event.modifiers() == Qt.ShiftModifier:
-								self.OutSideMenu.addAction('完全削除', self.OutSideForceDeleting)
-							else:
-								self.OutSideMenu.addAction('削除', self.OutSideDeleting)
-							self.OutSideMenu.addAction('コピー', self.OutSideCopyFile)
-							self.OutSideMenu.addAction('移動', self.OutSideCopyFile)
-						if os.path.isfile(self.filePath(FileFolderIndex)) and LoopIndex == 0 and self.filePath(FileFolderIndex).endswith('.zip') or self.filePath(FileFolderIndex).endswith('.tar.gz') or self.filePath(FileFolderIndex).endswith('.7z'):
-							self.OutSideMenu.addAction('解凍', self.OutSideUnArchive)
-						if not os.path.isfile(self.filePath(FileFolderIndex)) and not os.path.islink(self.filePath(FileFolderIndex)) and LoopIndex == 0:
-							if event.modifiers() == Qt.ShiftModifier:
-								self.OutSideMenu.addAction('完全削除', self.OutSideForceDeleting)
-							else:
-								self.OutSideMenu.addAction('削除', self.OutSideDeleting)
-							self.OutSideMenu.addAction('フォルダのコピー', self.OutSideCopyFile)
-							self.OutSideMenu.addAction('フォルダの移動', self.OutSideCopyFile)
-					try:
-						if os.path.isfile(self.filePath(self.selectedIndexes()[0])) or os.path.isdir(self.filePath(self.selectedIndexes()[0])):
-							self.SendMenu = self.OutSideMenu.addMenu('送る')
-							self.SendMenu.setStyleSheet('QMenu{background: #2d2d2d;color: #ededed;} QMenu::item{background: #2d2d2d;color: #ededed;} QMenu::item:selected{background: #af0c00;color: #ededed;}')
-							self.SendMenu.addAction('圧縮', self.OutSideArchiveCreate)
-					except:
-						pass
-					self.OutSideMenu.addAction('現在の場所を開く', self.OutSideNowOpenFolder)
-					self.OutSideMenu.addAction('現在のフォルダパスをコピー', self.OutSideCopiedPath)
-					self.OutSideMenu.addAction('フォルダの新規作成', self.OutSideCreateFolder)
-					self.OutSideMenu.addAction('新しいファイルを作成', self.OutSideCreateNewFile)
-					if not CopiedItems[0] == '':
-						self.OutSideMenu.addAction('ここにファイルをコピー', self.OutSideCopiedFiles)
-						self.OutSideMenu.addAction('ここにファイルを移動', self.OutSideMovedFile)
-					self.OutSideMenu.addAction('プロパティを見る', self.OutSidePropaty)
-					self.OutSideMenu.exec(self.mapToGlobal(event.position().toPoint()))
+					if os.path.isfile(self.filePath(self.selectedIndexes()[0])) or os.path.isdir(
+							self.filePath(self.selectedIndexes()[0])):
+						self.SendMenu = self.OutSideMenu.addMenu('送る')
+						self.SendMenu.setStyleSheet(
+							'QMenu{background: #2d2d2d;color: #ededed;} QMenu::item{background: #2d2d2d;color: #ededed;} QMenu::item:selected{background: #af0c00;color: #ededed;}')
+						self.SendMenu.addAction('圧縮', self.OutSideArchiveCreate)
 				except:
 					pass
-				super(FileSystemListView, self).mousePressEvent(event)
-			else:
-				super(FileSystemListView, self).mousePressEvent(event)
+				self.OutSideMenu.addAction('現在の場所を開く', self.OutSideNowOpenFolder)
+				self.OutSideMenu.addAction('現在のフォルダパスをコピー', self.OutSideCopiedPath)
+				self.OutSideMenu.addAction('フォルダの新規作成', self.OutSideCreateFolder)
+				self.OutSideMenu.addAction('新しいファイルを作成', self.OutSideCreateNewFile)
+				if not CopiedItems[0] == '':
+					self.OutSideMenu.addAction('ここにファイルをコピー', self.OutSideCopiedFiles)
+					self.OutSideMenu.addAction('ここにファイルを移動', self.OutSideMovedFile)
+				self.OutSideMenu.addAction('プロパティを見る', self.OutSidePropaty)
+				self.OutSideMenu.exec(self.mapToGlobal(event.position().toPoint()))
+			except:
+				pass
 		else:
-			SelectedItem[0] = '0'
 			super(FileSystemListView, self).mousePressEvent(event)
+			SelectedItem[0] = '0'
 
 	def OutSidePropaty(self):
 		for p in self.selectedIndexes():
@@ -2652,43 +2663,49 @@ class FileSystemListView(QListView):
 		os.chdir(BackupNowPath[0])
 
 	def dragEnterEvent(self, event):
-		if event.mimeData().hasUrls():
-			event.accept()
-			for ff in event.mimeData().urls():
-				newpath = '{}{}{}'.format(self.rootPath(), '/', str(ff.toLocalFile()).split('/')[-1])
-				try:
-					if os.path.isfile(str(ff.toLocalFile())):
-							shutil.move(str(ff.toLocalFile()), newpath)
-					else:
-						shutil.move(str(ff.toLocalFile()), newpath)
-				except:
-					pass
-		else:
-			event.ignore()
+		if not event.type() == QEvent.MouseButtonPress and not event.buttons() == Qt.BackButton:
+			if not event.type() == QEvent.MouseButtonPress and not event.buttons() == Qt.ForwardButton:
+				if event.mimeData().hasUrls():
+					event.accept()
+					for ff in event.mimeData().urls():
+						newpath = '{}{}{}'.format(self.rootPath(), '/', str(ff.toLocalFile()).split('/')[-1])
+						try:
+							if os.path.isfile(str(ff.toLocalFile())):
+									shutil.move(str(ff.toLocalFile()), newpath)
+							else:
+								shutil.move(str(ff.toLocalFile()), newpath)
+						except:
+							pass
+				else:
+					event.ignore()
 
 	def dragMoveEvent(self, event):
-		if event.mimeData().hasUrls():
-			event.setDropAction(Qt.CopyAction)
-			event.accept()
-		else:
-			event.ignore()
+		if not event.type() == QEvent.MouseButtonPress and not event.buttons() == Qt.BackButton:
+			if not event.type() == QEvent.MouseButtonPress and not event.buttons() == Qt.ForwardButton:
+				if event.mimeData().hasUrls():
+					event.setDropAction(Qt.CopyAction)
+					event.accept()
+				else:
+					event.ignore()
 
 	def dropEvent(self, event):
-		if event.mimeData().hasUrls():
-			event.setDropAction(Qt.CopyAction)
-			event.setAccepted(True)
-			event.accept()
-			for c in event.mimeData().urls():
-				newpath = '{}{}{}'.format(self.rootPath(), '/', str(c.toLocalFile()).split('/')[-1])
-				try:
-					if os.path.isfile(str(c.toLocalFile())):
-							shutil.move(str(c.toLocalFile()), newpath)
-					else:
-						shutil.move(str(c.toLocalFile()), newpath)
-				except:
-					pass
-		else:
-			event.ignore()
+		if not event.type() == QEvent.MouseButtonPress and not event.buttons() == Qt.BackButton:
+			if not event.type() == QEvent.MouseButtonPress and not event.buttons() == Qt.ForwardButton:
+				if event.mimeData().hasUrls():
+					event.setDropAction(Qt.CopyAction)
+					event.setAccepted(True)
+					event.accept()
+					for c in event.mimeData().urls():
+						newpath = '{}{}{}'.format(self.rootPath(), '/', str(c.toLocalFile()).split('/')[-1])
+						try:
+							if os.path.isfile(str(c.toLocalFile())):
+									shutil.move(str(c.toLocalFile()), newpath)
+							else:
+								shutil.move(str(c.toLocalFile()), newpath)
+						except:
+							pass
+				else:
+					event.ignore()
 
 class ArchiveDialog(QDialog):
 	def __init__(self):
@@ -3272,43 +3289,49 @@ class MainWindowwView(QMainWindow):
 		super(MainWindowwView, self).closeEvent(event)
 
 	def dragEnterEvent(self, event):
-		if event.mimeData().hasUrls():
-			event.accept()
-			for ff in event.mimeData().urls():
-				newpath = '{}{}{}'.format(PathListory[0], '/', str(ff.toLocalFile()).split('/')[-1])
-				try:
-					if os.path.isfile(str(ff.toLocalFile())):
-							shutil.move(str(ff.toLocalFile()), newpath)
-					else:
-						shutil.move(str(ff.toLocalFile()), newpath)
-				except:
-					pass
-		else:
-			event.ignore()
+		if not event.type() == QEvent.MouseButtonPress and not event.buttons() == Qt.BackButton:
+			if not event.type() == QEvent.MouseButtonPress and not event.buttons() == Qt.ForwardButton:
+				if event.mimeData().hasUrls():
+					event.accept()
+					for ff in event.mimeData().urls():
+						newpath = '{}{}{}'.format(PathListory[0], '/', str(ff.toLocalFile()).split('/')[-1])
+						try:
+							if os.path.isfile(str(ff.toLocalFile())):
+									shutil.move(str(ff.toLocalFile()), newpath)
+							else:
+								shutil.move(str(ff.toLocalFile()), newpath)
+						except:
+							pass
+				else:
+					event.ignore()
 
 	def dragMoveEvent(self, event):
-		if event.mimeData().hasUrls():
-			event.setDropAction(Qt.CopyAction)
-			event.accept()
-		else:
-			event.ignore()
+		if not event.type() == QEvent.MouseButtonPress and not event.buttons() == Qt.BackButton:
+			if not event.type() == QEvent.MouseButtonPress and not event.buttons() == Qt.ForwardButton:
+				if event.mimeData().hasUrls():
+					event.setDropAction(Qt.CopyAction)
+					event.accept()
+				else:
+					event.ignore()
 
 	def dropEvent(self, event):
-		if event.mimeData().hasUrls():
-			event.setDropAction(Qt.CopyAction)
-			event.setAccepted(True)
-			event.accept()
-			for c in event.mimeData().urls():
-				newpath = '{}{}{}'.format(PathListory[0], '/', str(c.toLocalFile()).split('/')[-1])
-				try:
-					if os.path.isfile(str(c.toLocalFile())):
-							shutil.move(str(c.toLocalFile()), newpath)
-					else:
-						shutil.move(str(c.toLocalFile()), newpath)
-				except:
-					pass
-		else:
-			event.ignore()
+		if not event.type() == QEvent.MouseButtonPress and not event.buttons() == Qt.BackButton:
+			if not event.type() == QEvent.MouseButtonPress and not event.buttons() == Qt.ForwardButton:
+				if event.mimeData().hasUrls():
+					event.setDropAction(Qt.CopyAction)
+					event.setAccepted(True)
+					event.accept()
+					for c in event.mimeData().urls():
+						newpath = '{}{}{}'.format(PathListory[0], '/', str(c.toLocalFile()).split('/')[-1])
+						try:
+							if os.path.isfile(str(c.toLocalFile())):
+									shutil.move(str(c.toLocalFile()), newpath)
+							else:
+								shutil.move(str(c.toLocalFile()), newpath)
+						except:
+							pass
+				else:
+					event.ignore()
 
 	def setLocation(self): # 右下に配置
 		AvailableWindow = QGuiApplication.primaryScreen().availableGeometry()
@@ -3484,6 +3507,147 @@ class InputDiaLog(QDialog):
 			return input_result, '0'
 		else:
 			return '', '1'
+
+class CenterView(QWidget):
+	def __init__(self, parent=None):
+		super(CenterView, self).__init__(parent)
+		self.setAcceptDrops(True)
+		self.SubFolderTree = FileSystemListView(self)
+		self.SubFolderTree.setMinimumWidth(630)
+		self.PathBar = QLineEdit(self)
+		self.PathBar.setMinimumWidth(500)
+		self.PathBar.setMinimumHeight(42)
+		self.layout = QGridLayout()
+		self.layout.addWidget(self.PathBar, 0, 0, Qt.AlignLeft)
+		self.layout.addWidget(self.SubFolderTree, 1, 0, Qt.AlignLeft)
+		self.layout.setVerticalSpacing(0)
+		self.setLayout(self.layout)
+		for _w in self.findChildren(QWidget)+[self]:
+			_w.installEventFilter(self)
+
+	def subFolderDubleClicked(self, func):
+		self.SubFolderTree.doubleClicked.connect(func)
+
+	def subFolderClicked(self, func):
+		self.SubFolderTree.clicked.connect(func)
+
+	def subFolderStyleSheet(self, sheet):
+		self.SubFolderTree.setStyleSheet(sheet)
+
+	def subFolderRootpath(self):
+		return self.SubFolderTree.rootPath()
+
+	def subFoldersetRootpath(self, path):
+		self.SubFolderTree.setRootPath(path)
+
+	def subFolderindex(self, path):
+		return self.SubFolderTree.index(path)
+
+	def subFolderRootIndex(self, index):
+		self.SubFolderTree.setRootIndex(index)
+
+	def subFolderFilePath(self, index):
+		return self.SubFolderTree.filePath(index)
+
+	def subFolderSort(self, column, order):
+		self.SubFolderTree.sort(column, order)
+
+	def subFoldersetDragEnable(self, c: bool):
+		self.SubFolderTree.setDragEnabled(c)
+
+	def subFoldersetDragDropOverwriteMode(self, c: bool):
+		self.SubFolderTree.setDragDropOverwriteMode(c)
+
+	def subFoldersetDragDropMode(self, func):
+		self.SubFolderTree.setDragDropMode(func)
+
+	def subFoldersetDefaultDropAction(self, Action):
+		self.SubFolderTree.setDefaultDropAction(Action)
+
+	def subFolderselectedIndexes(self):
+		return self.SubFolderTree.selectedIndexes()
+
+	def pathBarFinishedEdit(self, func):
+		self.PathBar.editingFinished.connect(func)
+
+	def pathBarStylesheet(self, sheet):
+		self.PathBar.setStyleSheet(sheet)
+
+	def pathBarsetText(self, text):
+		self.PathBar.setText(text)
+
+	def pathBarText(self):
+		return self.PathBar.text()
+
+	def eventFilter(self, obj, event):
+		try:
+			if event.type() == QEvent.MouseButtonPress:
+				if event.buttons() == Qt.BackButton:
+					try:
+						BackPath = self.SubFolderTree.rootPath().replace(os.sep, '/').split([p for p in self.SubFolderTree.rootPath().replace(os.sep, '/').split('/')][-1])[0].replace(os.sep, '/')
+					except:
+						BackPath = ''
+					if BackPath == '':
+						try:
+							BackPath = os.path.splitdrive(os.environ['windir'.lower()])[0].replace(os.sep, '/')
+						except:
+							try:
+								BackPath = os.path.splitdrive(os.environ['windir'.upper()])[0].replace(os.sep, '/')
+							except:
+								BackPath = '/'
+					if PathHistorys[0] == BackPath:
+						StopPath[0] = '1'
+						self.SubFolderTree.setRootPath(BackPath)
+						self.SubFolderTree.setRootIndex(self.SubFolderTree.index(BackPath))
+						self.PathBar.setText(BackPath)
+						PathHistorys.append(self.SubFolderTree.rootPath().replace(os.sep, '/'))
+						StopPath2[0] = '0'
+					elif not PathHistorys[0] == BackPath and StopPath[0] == '0':
+						if PathHistorys[0] == self.SubFolderTree.rootPath().replace(os.sep, '/') + '/' and StopPath[0] == '0':
+							pass
+						else:
+							self.SubFolderTree.setRootPath(BackPath)
+							self.SubFolderTree.setRootIndex(self.SubFolderTree.index(BackPath))
+							self.PathBar.setText(BackPath)
+							PathHistorys.append(self.SubFolderTree.rootPath().replace(os.sep, '/'))
+							StopPath2[0] = '0'
+					elif StopPath[0] == '1' and PathHistorys[0] == self.SubFolderTree.rootPath().replace(os.sep, '/') + '/':
+						BackPath = os.path.expanduser('~') + '/'
+						self.SubFolderTree.setRootPath(BackPath)
+						self.SubFolderTree.setRootIndex(self.SubFolderTree.index(BackPath))
+						self.PathBar.setText(BackPath)
+						PathHistorys.append(self.SubFolderTree.rootPath().replace(os.sep, '/'))
+						StopPath2[0] = '0'
+					elif StopPath[0] == '0' and not str(pathlib.Path(os.path.expanduser('~')).parent) == self.SubFolderTree.rootPath().replace(os.sep, '/'):
+						BackPath = PathHistorys[-2]
+						self.SubFolderTree.setRootPath(BackPath)
+						self.SubFolderTree.setRootIndex(self.SubFolderTree.index(BackPath))
+						self.PathBar.setText(BackPath)
+						PathHistorys.append(self.SubFolderTree.rootPath().replace(os.sep, '/'))
+						StopPath2[0] = '0'
+					elif StopPath[0] == '2':
+						BackPath = PathHistorys[-2]
+						self.SubFolderTree.setRootPath(BackPath)
+						self.SubFolderTree.setRootIndex(self.SubFolderTree.index(BackPath))
+						self.PathBar.setText(BackPath)
+						PathHistorys.append(self.SubFolderTree.rootPath().replace(os.sep, '/'))
+						StopPath[0] = '0'
+						StopPath2[0] = '0'
+					BackupRootPath.append(self.SubFolderTree.rootPath().replace(os.sep, '/'))
+					NowRootDirectoryPath[0] = self.SubFolderTree.rootPath().replace(os.sep, '/')
+				elif event.buttons() == Qt.ForwardButton:
+					for path in reversed(PathHistorys):
+						if not self.SubFolderTree.rootPath().replace(os.sep, '/') == path and StopPath2[0] == '0':
+							self.SubFolderTree.setRootPath(path)
+							self.SubFolderTree.setRootIndex(self.SubFolderTree.index(path))
+							self.PathBar.setText(path)
+							StopPath2[0] = '1'
+							break
+					BackupRootPath.append(self.SubFolderTree.rootPath().replace(os.sep, '/'))
+					NowRootDirectoryPath[0] = self.SubFolderTree.rootPath().replace(os.sep, '/')
+		except AttributeError:
+			pass
+		return super(CenterView, self).eventFilter(obj, event)
 
 class Ui_FullTools2(object):
 	def setupUi(self, FullTools2):
@@ -3754,25 +3918,22 @@ class Ui_FullTools2(object):
 		self.RootFolderTree.clicked.connect(self.SingleClickRootFolder)
 		self.RootFolderTree.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.RootFolderTree.customContextMenuRequested.connect(self.FilerContextMenu)
-		self.SubFolderTree = FileSystemListView(self.tab_4)
-		self.SubFolderTree.setObjectName("SubFolderTree")
-		self.SubFolderTree.setDragEnabled(True)
-		self.SubFolderTree.setDragDropOverwriteMode(True)
-		self.SubFolderTree.setDragDropMode(QAbstractItemView.DragDrop)
-		self.SubFolderTree.setDefaultDropAction(Qt.MoveAction)
-		self.SubFolderTree.doubleClicked.connect(self.AccessFolder)
-		self.SubFolderTree.clicked.connect(self.SinglePreviewSubFolder)
-		self.SubFolderTree.setStyleSheet('QListView{color: White;background: #131519;border 0px;}')
-		self.PathBar = QLineEdit(self.tab_4)
-		self.PathBar.setObjectName("PathBar")
-		self.PathBar.setGeometry(QRect(143, 38, 618, 41))
-		self.PathBar.editingFinished.connect(self.EndEditSearchBar)
-		self.PathBar.setStyleSheet('QLineEdit{background: #2d2d2d;color: #ededed;border 0px;border 0px;}')
+		self.CenterView = CenterView(self.tab_4)
+		self.CenterView.subFoldersetDragEnable(True)
+		self.CenterView.subFoldersetDragDropOverwriteMode(True)
+		self.CenterView.subFoldersetDragDropMode(QAbstractItemView.DragDrop)
+		self.CenterView.subFoldersetDefaultDropAction(Qt.MoveAction)
+		self.CenterView.subFolderDubleClicked(self.AccessFolder)
+		self.CenterView.subFolderClicked(self.SinglePreviewSubFolder)
+		self.CenterView.subFolderStyleSheet('QListView{color: White;background: #131519;border 0px;}')
+		self.CenterView.pathBarStylesheet('QLineEdit{background: #2d2d2d;color: #ededed;border 0px;border 0px;}')
+		self.CenterView.pathBarFinishedEdit(self.EndEditSearchBar)
+		self.CenterView.setGeometry(QRect(250, 28, 555, 600))
 		self.FileTreeSearch2 = QLineEdit(self.tab_4)
 		self.FileTreeSearch2.setObjectName("FileTreeSearch2")
 		self.FileTreeSearch2.editingFinished.connect(self.on_TextSearch5)
 		self.FileTreeSearch2.setClearButtonEnabled(True)
-		self.FileTreeSearch2.setGeometry(QRect(802, 36, 335, 41))
+		self.FileTreeSearch2.setGeometry(QRect(802, 36, 335, 45))
 		self.FileTreeSearch2.setStyleSheet('QLineEdit{background: #2d2d2d;color: #ededed;border 0px;border 0px;}')
 		self.FileTreeSearch2.setPlaceholderText('検索')
 		self.UpDirectory = QPushButton(self.tab_4)
@@ -3802,13 +3963,13 @@ class Ui_FullTools2(object):
 		self.SortChangeButton.setStyleSheet('QPushButton{background: #2d2d2d;color: #ededed;}')
 		self.HomeButton = QPushButton(self.tab_4)
 		self.HomeButton.setObjectName("HomeButton")
-		self.HomeButton.setGeometry(QRect(99, 36, 43, 43))
+		self.HomeButton.setGeometry(QRect(178, 36, 43, 43))
 		self.HomeButton.setStyleSheet('QPushButton{background: #2d2d2d;color: #ededed;}')
 		self.HomeButton.setAutoDefault(False)
 		self.HomeButton.pressed.connect(self.BackHome)
 		self.BackButton = QPushButton(self.tab_4)
 		self.BackButton.setObjectName("BackButton")
-		self.BackButton.setGeometry(QRect(10, 36, 43, 43))
+		self.BackButton.setGeometry(QRect(25, 36, 43, 43))
 		font4 = QFont()
 		font4.setPointSize(35)
 		self.BackButton.setFont(font4)
@@ -3816,7 +3977,7 @@ class Ui_FullTools2(object):
 		self.BackButton.pressed.connect(self.BackReturnDirectory)
 		self.OnButton = QPushButton(self.tab_4)
 		self.OnButton.setObjectName("OnButton")
-		self.OnButton.setGeometry(QRect(58, 36, 43, 43))
+		self.OnButton.setGeometry(QRect(95, 36, 43, 43))
 		self.OnButton.setFont(font4)
 		self.OnButton.setStyleSheet('QPushButton{background: #2d2d2d;color: #ededed;}')
 		self.OnButton.pressed.connect(self.OnMoveDirectory)
@@ -3832,9 +3993,9 @@ class Ui_FullTools2(object):
 		self.Tab3.addTab(self.tab_4, "")
 		self.retranslateUi(FullTools2)
 		self.Tab3.setCurrentIndex(3)
-		NowRootDirectoryPath[0] = self.SubFolderTree.rootPath()
-		self.PathBar.setText(self.SubFolderTree.rootPath()+'/')
-		PathHistorys.append(self.SubFolderTree.rootPath()+'/')
+		NowRootDirectoryPath[0] = self.CenterView.subFolderRootpath().replace(os.sep, '/')
+		self.CenterView.pathBarsetText(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/')
+		PathHistorys.append(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/')
 		OutOfThread0.start()
 		self.UpdateCalendar = QTimer(FullTools2)
 		self.UpdateCalendar.timeout.connect(self.UpdateCalendarCell)
@@ -3876,20 +4037,22 @@ class Ui_FullTools2(object):
 
 	def OnMoveDirectory(self):
 		self.loader.clear()
+		self.CenterView.pathBarsetText(self.CenterView.pathBarText().replace(os.sep, '/'))
 		for path in reversed(PathHistorys):
-			if not self.SubFolderTree.rootPath() == path and StopPath2[0] == '0':
-				self.SubFolderTree.setRootPath(path)
-				self.SubFolderTree.setRootIndex(self.SubFolderTree.index(path))
-				self.PathBar.setText(path)
+			if not self.CenterView.subFolderRootpath().replace(os.sep, '/') == path and StopPath2[0] == '0':
+				self.CenterView.subFoldersetRootpath(path)
+				self.CenterView.subFolderRootIndex(self.CenterView.subFolderindex(path))
+				self.CenterView.pathBarsetText(path)
 				StopPath2[0] = '1'
 				break
-		BackupRootPath.append(self.SubFolderTree.rootPath())
-		NowRootDirectoryPath[0] = self.SubFolderTree.rootPath()
+		BackupRootPath.append(self.CenterView.subFolderRootpath().replace(os.sep, '/'))
+		NowRootDirectoryPath[0] = self.CenterView.subFolderRootpath().replace(os.sep, '/')
 
 	def BackReturnDirectory(self):
 		self.loader.clear()
+		self.CenterView.pathBarsetText(self.CenterView.pathBarText().replace(os.sep, '/'))
 		try:
-			BackPath = self.SubFolderTree.rootPath().split([p for p in self.SubFolderTree.rootPath().split('/')][-1])[0]
+			BackPath = self.CenterView.subFolderRootpath().replace(os.sep, '/').split([p for p in self.CenterView.subFolderRootpath().replace(os.sep, '/').split('/')][-1])[0].replace(os.sep, '/')
 		except:
 			BackPath = ''
 		if BackPath == '':
@@ -3902,120 +4065,123 @@ class Ui_FullTools2(object):
 					BackPath = '/'
 		if PathHistorys[0] == BackPath:
 			StopPath[0] = '1'
-			self.SubFolderTree.setRootPath(BackPath)
-			self.SubFolderTree.setRootIndex(self.SubFolderTree.index(BackPath))
-			self.PathBar.setText(BackPath)
-			PathHistorys.append(self.SubFolderTree.rootPath())
+			self.CenterView.subFoldersetRootpath(BackPath)
+			self.CenterView.subFolderRootIndex(self.CenterView.subFolderindex(BackPath))
+			self.CenterView.pathBarsetText(BackPath)
+			PathHistorys.append(self.CenterView.subFolderRootpath().replace(os.sep, '/'))
 			StopPath2[0] = '0'
 		elif not PathHistorys[0] == BackPath and StopPath[0] == '0':
-			if PathHistorys[0] == self.SubFolderTree.rootPath()+'/' and StopPath[0] == '0':
+			if PathHistorys[0] == self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/' and StopPath[0] == '0':
 				pass
 			else:
-				self.SubFolderTree.setRootPath(BackPath)
-				self.SubFolderTree.setRootIndex(self.SubFolderTree.index(BackPath))
-				self.PathBar.setText(BackPath)
-				PathHistorys.append(self.SubFolderTree.rootPath())
+				self.CenterView.subFoldersetRootpath(BackPath)
+				self.CenterView.subFolderRootIndex(self.CenterView.subFolderindex(BackPath))
+				self.CenterView.pathBarsetText(BackPath)
+				PathHistorys.append(self.CenterView.subFolderRootpath().replace(os.sep, '/'))
 				StopPath2[0] = '0'
-		elif StopPath[0] == '1' and PathHistorys[0] == self.SubFolderTree.rootPath()+'/':
+		elif StopPath[0] == '1' and PathHistorys[0] == self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/':
 			BackPath = os.path.expanduser('~')+'/'
-			self.SubFolderTree.setRootPath(BackPath)
-			self.SubFolderTree.setRootIndex(self.SubFolderTree.index(BackPath))
-			self.PathBar.setText(BackPath)
-			PathHistorys.append(self.SubFolderTree.rootPath())
+			self.CenterView.subFoldersetRootpath(BackPath)
+			self.CenterView.subFolderRootIndex(self.CenterView.subFolderindex(BackPath))
+			self.CenterView.pathBarsetText(BackPath)
+			PathHistorys.append(self.CenterView.subFolderRootpath().replace(os.sep, '/'))
 			StopPath2[0] = '0'
-		elif StopPath[0] == '0' and not str(pathlib.Path(os.path.expanduser('~')).parent) == self.SubFolderTree:
+		elif StopPath[0] == '0' and not str(pathlib.Path(os.path.expanduser('~')).parent) == self.CenterView.subFolderRootpath().replace(os.sep, '/'):
 			BackPath = PathHistorys[-2]
-			self.SubFolderTree.setRootPath(BackPath)
-			self.SubFolderTree.setRootIndex(self.SubFolderTree.index(BackPath))
-			self.PathBar.setText(BackPath)
-			PathHistorys.append(self.SubFolderTree.rootPath())
+			self.CenterView.subFoldersetRootpath(BackPath)
+			self.CenterView.subFolderRootIndex(self.CenterView.subFolderindex(BackPath))
+			self.CenterView.pathBarsetText(BackPath)
+			PathHistorys.append(self.CenterView.subFolderRootpath().replace(os.sep, '/'))
 			StopPath2[0] = '0'
 		elif StopPath[0] == '2':
 			BackPath = PathHistorys[-2]
-			self.SubFolderTree.setRootPath(BackPath)
-			self.SubFolderTree.setRootIndex(self.SubFolderTree.index(BackPath))
-			self.PathBar.setText(BackPath)
-			PathHistorys.append(self.SubFolderTree.rootPath())
+			self.CenterView.subFoldersetRootpath(BackPath)
+			self.CenterView.subFolderRootIndex(self.CenterView.subFolderindex(BackPath))
+			self.CenterView.pathBarsetText(BackPath)
+			PathHistorys.append(self.CenterView.subFolderRootpath().replace(os.sep, '/'))
 			StopPath[0] = '0'
 			StopPath2[0] = '0'
-		BackupRootPath.append(self.SubFolderTree.rootPath())
-		NowRootDirectoryPath[0] = self.SubFolderTree.rootPath()
+		BackupRootPath.append(self.CenterView.subFolderRootpath().replace(os.sep, '/'))
+		NowRootDirectoryPath[0] = self.CenterView.subFolderRootpath().replace(os.sep, '/')
 
 	def BackHome(self):
+		self.CenterView.pathBarsetText(self.CenterView.pathBarText().replace(os.sep, '/'))
 		self.loader.clear()
-		self.SubFolderTree.setRootPath(os.path.expanduser('~'))
-		self.SubFolderTree.setRootIndex(self.SubFolderTree.index(os.path.expanduser('~')))
-		self.PathBar.setText(self.SubFolderTree.rootPath()+'/')
-		NowRootDirectoryPath[0] = self.SubFolderTree.rootPath()
-		PathHistorys.append(self.SubFolderTree.rootPath()+'/')
+		self.CenterView.subFoldersetRootpath(os.path.expanduser('~'))
+		self.CenterView.subFolderRootIndex(self.CenterView.subFolderindex(os.path.expanduser('~')))
+		self.CenterView.pathBarsetText(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/')
+		NowRootDirectoryPath[0] = self.CenterView.subFolderRootpath().replace(os.sep, '/')
+		PathHistorys.append(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/')
 		StopPath[0] = '0'
 		StopPath2[0] = '0'
-		BackupRootPath.append(self.SubFolderTree.rootPath())
-		NowRootDirectoryPath[0] = self.SubFolderTree.rootPath()
+		BackupRootPath.append(self.CenterView.subFolderRootpath().replace(os.sep, '/'))
+		NowRootDirectoryPath[0] = self.CenterView.subFolderRootpath().replace(os.sep, '/')
 
 	def MoveUpDiercory(self):
 		self.loader.clear()
+		self.CenterView.pathBarsetText(self.CenterView.pathBarText().replace(os.sep, '/'))
 		try:
-			DriveLatter = os.path.splitdrive(os.environ['windir'.lower()])[0]
+			DriveLatter = os.path.splitdrive(os.environ['windir'.lower()])[0].replace(os.sep, '/')
 		except:
 			try:
-				DriveLatter = os.path.splitdrive(os.environ['windir'.upper()])[0]
+				DriveLatter = os.path.splitdrive(os.environ['windir'.upper()])[0].replace(os.sep, '/')
 			except:
 				DriveLatter = '/'
 
-		self.SubFolderTree.setRootPath(os.path.dirname(self.SubFolderTree.rootPath()))
-		self.SubFolderTree.setRootIndex(self.SubFolderTree.index(self.SubFolderTree.rootPath()))
-		if not self.SubFolderTree.rootPath() == DriveLatter:
-			self.PathBar.setText(self.SubFolderTree.rootPath()+'/')
+		self.CenterView.subFoldersetRootpath(os.path.dirname(self.CenterView.subFolderRootpath().replace(os.sep, '/')))
+		self.CenterView.subFolderRootIndex(self.CenterView.subFolderindex(self.CenterView.subFolderRootpath().replace(os.sep, '/')))
+		if not self.CenterView.subFolderRootpath().replace(os.sep, '/') == DriveLatter:
+			self.CenterView.pathBarsetText(self.CenterView.subFolderRootpath().replace(os.sep, '/') + '/')
 		else:
-			self.PathBar.setText(self.SubFolderTree.rootPath())
-		PathHistorys.append(self.SubFolderTree.rootPath()+'/')
+			self.CenterView.pathBarsetText(self.CenterView.subFolderRootpath().replace(os.sep, '/'))
+		PathHistorys.append(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/')
 		StopPath[0] = '0'
 		StopPath2[0] = '0'
-		BackupRootPath.append(self.SubFolderTree.rootPath())
-		NowRootDirectoryPath[0] = self.SubFolderTree.rootPath()
+		BackupRootPath.append(self.CenterView.subFolderRootpath().replace(os.sep, '/'))
+		NowRootDirectoryPath[0] = self.CenterView.subFolderRootpath().replace(os.sep, '/')
 
 	def AccessFolder(self):
 		self.loader.clear()
-		if not os.path.isfile(self.SubFolderTree.filePath(self.SubFolderTree.selectedIndexes()[0])):
-			self.SubFolderTree.setRootPath(self.SubFolderTree.filePath(self.SubFolderTree.selectedIndexes()[0]))
-			self.SubFolderTree.setRootIndex(self.SubFolderTree.index(self.SubFolderTree.filePath(self.SubFolderTree.selectedIndexes()[0])))
-			self.PathBar.setText(self.SubFolderTree.rootPath()+'/')
+		self.CenterView.pathBarsetText(self.CenterView.pathBarText().replace(os.sep, '/'))
+		if not os.path.isfile(self.CenterView.subFolderFilePath(self.CenterView.subFolderselectedIndexes()[0])):
+			self.CenterView.subFoldersetRootpath(self.CenterView.subFolderFilePath(self.CenterView.subFolderselectedIndexes()[0]))
+			self.CenterView.subFolderRootIndex(self.CenterView.subFolderindex(self.CenterView.subFolderFilePath(self.CenterView.subFolderselectedIndexes()[0])))
+			self.CenterView.pathBarsetText(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/')
 			StopPath[0] = '0'
 			StopPath2[0] = '0'
-			PathHistorys.append(self.SubFolderTree.rootPath()+'/')
-			NowRootDirectoryPath[0] = self.SubFolderTree.rootPath()
-			BackupRootPath.append(self.SubFolderTree.rootPath())
+			PathHistorys.append(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/')
+			NowRootDirectoryPath[0] = self.CenterView.subFolderRootpath().replace(os.sep, '/')
+			BackupRootPath.append(self.CenterView.subFolderRootpath().replace(os.sep, '/'))
 		else:
-			QDesktopServices.openUrl('file:///{}'.format(self.SubFolderTree.filePath(self.SubFolderTree.selectedIndexes()[0])))
-		NowRootDirectoryPath[0] = self.SubFolderTree.rootPath()
+			QDesktopServices.openUrl('file:///{}'.format(self.CenterView.subFolderFilePath(self.CenterView.subFolderselectedIndexes()[0])))
+		NowRootDirectoryPath[0] = self.CenterView.subFolderRootpath().replace(os.sep, '/')
 
 	def EndEditSearchBar(self):
-		if self.PathBar.text() == '../':
-			self.SubFolderTree.setRootPath(os.path.dirname(self.SubFolderTree.rootPath()+'/'))
-			self.SubFolderTree.setRootIndex(self.SubFolderTree.index(self.SubFolderTree.rootPath()+'/'))
-			self.PathBar.setText(self.SubFolderTree.rootPath()+'/')
-			PathHistorys.append(self.SubFolderTree.rootPath()+'/')
+		if self.CenterView.pathBarText() == '../':
+			self.CenterView.subFoldersetRootpath(os.path.dirname(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/'))
+			self.CenterView.subFolderRootIndex(self.CenterView.subFolderindex(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/'))
+			self.CenterView.pathBarsetText(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/')
+			PathHistorys.append(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/')
 			StopPath[0] = '0'
 			StopPath2[0] = '0'
-			BackupRootPath.append(self.SubFolderTree.rootPath())
-		elif self.PathBar.text() == '.':
-			self.SubFolderTree.setRootPath(self.SubFolderTree.rootPath()+'/')
-			self.SubFolderTree.setRootIndex(self.SubFolderTree.index(self.SubFolderTree.rootPath()+'/'))
-			self.PathBar.setText(self.SubFolderTree.rootPath()+'/')
+			BackupRootPath.append(self.CenterView.subFolderRootpath().replace(os.sep, '/'))
+		elif self.CenterView.pathBarText() == '.':
+			self.CenterView.subFoldersetRootpath(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/')
+			self.CenterView.subFolderRootIndex(self.CenterView.subFolderindex(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/'))
+			self.CenterView.pathBarsetText(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/')
 			StopPath[0] = '0'
 			StopPath2[0] = '0'
-			PathHistorys.append(self.SubFolderTree.rootPath()+'/')
-			BackupRootPath.append(self.SubFolderTree.rootPath())
+			PathHistorys.append(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/')
+			BackupRootPath.append(self.CenterView.subFolderRootpath().replace(os.sep, '/'))
 		else:
-			self.SubFolderTree.setRootPath(self.PathBar.text())
-			self.SubFolderTree.setRootIndex(self.SubFolderTree.index(self.SubFolderTree.rootPath()+'/'))
-			self.PathBar.setText(self.SubFolderTree.rootPath()+'/')
+			self.CenterView.subFoldersetRootpath(self.CenterView.pathBarText())
+			self.CenterView.subFolderRootIndex(self.CenterView.subFolderindex(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/'))
+			self.CenterView.pathBarsetText(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/')
 			StopPath[0] = '0'
 			StopPath2[0] = '0'
-			PathHistorys.append(self.SubFolderTree.rootPath()+'/')
-			BackupRootPath.append(self.SubFolderTree.rootPath())
-		NowRootDirectoryPath[0] = self.SubFolderTree.rootPath()
+			PathHistorys.append(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/')
+			BackupRootPath.append(self.CenterView.subFolderRootpath().replace(os.sep, '/'))
+		NowRootDirectoryPath[0] = self.CenterView.subFolderRootpath().replace(os.sep, '/')
 
 	def SingleClickRootFolder(self):
 		try:
@@ -4028,8 +4194,8 @@ class Ui_FullTools2(object):
 			self.RootFolderTree.expand(RootIndex)
 
 	def SinglePreviewSubFolder(self):
-		SelectedItem[0] = self.SubFolderTree.selectedIndexes()
-		PixelMap = QPixmap(self.SubFolderTree.filePath(self.SubFolderTree.selectedIndexes()[0]))
+		SelectedItem[0] = self.CenterView.subFolderselectedIndexes()
+		PixelMap = QPixmap(self.CenterView.subFolderFilePath(self.CenterView.subFolderselectedIndexes()[0]))
 		if PixelMap.isNull():
 			self.Preview.setText('プレビューできませんでした')
 		else:
@@ -4104,21 +4270,21 @@ class Ui_FullTools2(object):
 	def ItemSorting(self):
 		if SortedNumbar[0] == '1':
 			self.SortChangeButton.setText('昇順(A-Z)')
-			self.SubFolderTree.sort(0, Qt.SortOrder.AscendingOrder)
+			self.CenterView.subFolderSort(0, Qt.SortOrder.AscendingOrder)
 			SortedNumbar[0] = '0'
 		elif SortedNumbar[0] == '0':
 			self.SortChangeButton.setText('降順(Z-A)')
-			self.SubFolderTree.sort(0, Qt.SortOrder.DescendingOrder)
+			self.CenterView.subFolderSort(0, Qt.SortOrder.DescendingOrder)
 			SortedNumbar[0] = '1'
 
 	def SortingItemMenu(self):
 		if SortedNumbar[0] == '1':
 			self.SortChangeButton.setText('昇順(A-Z)')
-			self.SubFolderTree.sort(0, Qt.SortOrder.AscendingOrder)
+			self.CenterView.subFolderSort(0, Qt.SortOrder.AscendingOrder)
 			SortedNumbar[0] = '0'
 		elif SortedNumbar[0] == '0':
 			self.SortChangeButton.setText('降順(Z-A)')
-			self.SubFolderTree.sort(0, Qt.SortOrder.DescendingOrder)
+			self.CenterView.subFolderSort(0, Qt.SortOrder.DescendingOrder)
 			SortedNumbar[0] = '1'
 
 	def on_TextSearch(self, text):
@@ -4150,7 +4316,7 @@ class Ui_FullTools2(object):
 
 	def on_TextSearch5(self):
 		self.loader.clear()
-		FileSearchingThread(path=self.SubFolderTree.rootPath()+'/', sfile='**/{}'.format(self.FileTreeSearch2.text())).run()
+		FileSearchingThread(path=self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/', sfile='**/{}'.format(self.FileTreeSearch2.text())).run()
 
 	def SelectedItem(self, index):
 		try:
@@ -4185,14 +4351,14 @@ class Ui_FullTools2(object):
 			else:
 				self.RootFolderTree.expand(RootIndex)
 			PathListory[0] = self.RootFolderFileSystemModel.filePath(RootIndex)
-			self.SubFolderTree.setRootPath(self.RootFolderFileSystemModel.filePath(RootIndex))
-			self.SubFolderTree.setRootIndex(self.SubFolderTree.index(self.RootFolderFileSystemModel.filePath(RootIndex)))
-			self.PathBar.setText(self.SubFolderTree.rootPath()+'/')
-			NowRootDirectoryPath[0] = self.SubFolderTree.rootPath()
+			self.CenterView.subFoldersetRootpath(self.RootFolderFileSystemModel.filePath(RootIndex))
+			self.CenterView.subFolderRootIndex(self.CenterView.subFolderindex(self.RootFolderFileSystemModel.filePath(RootIndex)))
+			self.CenterView.pathBarsetText(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/')
+			NowRootDirectoryPath[0] = self.CenterView.subFolderRootpath().replace(os.sep, '/')
 			StopPath[0] = '2'
 			StopPath2[0] = '0'
-			PathHistorys.append(self.SubFolderTree.rootPath()+'/')
-			BackupRootPath.append(self.SubFolderTree.rootPath())
+			PathHistorys.append(self.CenterView.subFolderRootpath().replace(os.sep, '/')+'/')
+			BackupRootPath.append(self.CenterView.subFolderRootpath().replace(os.sep, '/'))
 		else:
 			QDesktopServices.openUrl('file:///{}'.format(self.RootFolderFileSystemModel.filePath(RootIndex)))
 

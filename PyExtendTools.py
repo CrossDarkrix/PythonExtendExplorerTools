@@ -15,7 +15,6 @@ import tarfile
 import threading
 import time
 import zipfile
-import chardet
 import mutagen.flac
 import mutagen.id3
 import mutagen.mp3
@@ -2660,11 +2659,10 @@ class FileSystemListView(QListView):
 					os.makedirs(current_paths, exist_ok=True)
 					os.chdir(current_paths)
 					for info in ExtractZip.infolist():
-						enc = chardet.detect(info.orig_filename.encode())['encoding']
 						try:
 							info.filename = info.orig_filename.encode('cp437').decode(enc)
 						except:
-							info.filename = info.orig_filename.encode(enc).decode(enc)
+							info.filename = info.orig_filename.encode('utf-8').decode(enc)
 						if os.sep != "/" and os.sep in info.filename:
 							info.filename = info.filename.replace(os.sep, "/")
 						ExtractZip.extract(info)

@@ -5,32 +5,35 @@ import concurrent.futures
 import datetime
 import json
 import locale
-
-import PySide6.QtGui
-from mutagen.easyid3 import EasyID3
-import mutagen.id3
-import mutagen.flac
-import mutagen.mp3
-import mutagen.mp4
-import numpy
 import os
 import pathlib
-import py7zr
 import platform
 import re
 import shutil
-import send2trash
 import sys
 import tarfile
-import time
 import threading
-import psutil
+import time
 import zipfile
+import chardet
+import mutagen.flac
+import mutagen.id3
+import mutagen.mp3
+import mutagen.mp4
+import numpy
+import psutil
+import py7zr
 import pyqtgraph
-from PySide6.QtCore import (QCoreApplication, QByteArray, QMetaObject, QRect, Qt, Signal, QSize, QFile, QEvent, QFileInfo, QTimer, QLocale, QTranslator, QLibraryInfo, QThread, QDate, QObject)
-from PySide6.QtGui import (QAction, QFont, QStandardItem, QStandardItemModel, QDesktopServices, QCursor, QPixmap, QPixmapCache, QIcon, QImage, QGuiApplication, QColor, QMouseEvent, QDropEvent)
-from PySide6.QtWidgets import (QApplication, QCheckBox, QLabel, QListView, QLineEdit, QMainWindow, QPlainTextEdit, QPushButton, QTabWidget, QTreeView, QWidget, QFileSystemModel, QMenu, QAbstractItemView, QDialog, QDialogButtonBox, QFileIconProvider, QGridLayout, QScrollArea, QCalendarWidget, QMenuBar)
+import send2trash
 from PySide6.QtCharts import (QChart, QChartView, QPieSeries, QPieSlice)
+from PySide6.QtCore import (QCoreApplication, QByteArray, QMetaObject, QRect, Qt, Signal, QSize, QFile, QEvent,
+							QFileInfo, QTimer, QLocale, QTranslator, QThread, QDate)
+from PySide6.QtGui import (QFont, QStandardItem, QStandardItemModel, QDesktopServices, QCursor, QPixmap, QPixmapCache,
+						   QIcon, QImage, QGuiApplication, QColor)
+from PySide6.QtWidgets import (QApplication, QCheckBox, QLabel, QListView, QLineEdit, QMainWindow, QPlainTextEdit,
+							   QPushButton, QTabWidget, QTreeView, QWidget, QFileSystemModel, QMenu, QAbstractItemView,
+							   QDialog, QDialogButtonBox, QFileIconProvider, QGridLayout, QScrollArea, QCalendarWidget)
+from mutagen.easyid3 import EasyID3
 
 BackupNowPath = [u'']
 PathListory = [u'']
@@ -1957,6 +1960,7 @@ class iconprovide(QFileIconProvider):
 
 	def icon(self, fileInfo):
 		AcceptFileType = ('.svg', '.jpg', '.jpeg', '.png', '.bmp', '.gif', '.rgb', '.tiff', '.xbm', '.pbm', '.pgm', '.ppm')
+		self.fileInfo = fileInfo
 		try:
 			if fileInfo.isFile():
 				if fileInfo.filePath().lower().endswith(AcceptFileType):
@@ -1989,7 +1993,7 @@ class iconprovide(QFileIconProvider):
 			self.loader.setCacheLimit(100)
 			return QIcon(img.scaled(64, 64))
 		except Exception as E:
-			return QFileIconProvider.icon(self, fileInfo)
+			return QFileIconProvider.icon(self, self.fileInfo)
 
 	def LoadMP3(self, path):
 		try:
@@ -1999,7 +2003,7 @@ class iconprovide(QFileIconProvider):
 			self.loader.setCacheLimit(100)
 			return QIcon(img.scaled(64, 64))
 		except Exception as E:
-			return QFileIconProvider.icon(self, fileInfo)
+			return QFileIconProvider.icon(self, self.fileInfo)
 
 	def LoadM4A(self, path):
 		try:
@@ -2009,7 +2013,7 @@ class iconprovide(QFileIconProvider):
 			self.loader.setCacheLimit(100)
 			return QIcon(img.scaled(64, 64))
 		except Exception as E:
-			return QFileIconProvider.icon(self, fileInfo)
+			return QFileIconProvider.icon(self, self.fileInfo)
 
 class FileSystemListView(QListView):
 	def __init__(self, parent, model=QFileSystemModel()):
@@ -2651,7 +2655,20 @@ class FileSystemListView(QListView):
 			if self.filePath(DetectFile).endswith('.zip'):
 				os.makedirs(self.filePath(DetectFile).replace(os.getcwd(), os.curdir).split('.zip')[0], exist_ok=True)
 				with zipfile.ZipFile(self.filePath(DetectFile), 'r') as ExtractZip:
-					ExtractZip.extractall(path='{}{}{}'.format(os.getcwd(), '/', self.filePath(DetectFile).split(os.getcwd().replace(os.sep, '/'))[-1].split('.zip')[0]))
+					bkpath = os.getcwd()
+					current_paths = '{}{}{}'.format(os.getcwd(), '/', self.filePath(DetectFile).split(os.getcwd().replace(os.sep, '/'))[-1].split('.zip')[0])
+					os.makedirs(current_paths, exist_ok=True)
+					os.chdir(current_paths)
+					for info in ExtractZip.infolist():
+						enc = chardet.detect(info.orig_filename.encode())['encoding']
+						try:
+							info.filename = info.orig_filename.encode('cp437').decode(enc)
+						except:
+							info.filename = info.orig_filename.encode(enc).decode(enc)
+						if os.sep != "/" and os.sep in info.filename:
+							info.filename = info.filename.replace(os.sep, "/")
+						ExtractZip.extract(info)
+					os.chdir(bkpath)
 			if self.filePath(DetectFile).endswith('.tar.gz'):
 				os.makedirs(self.filePath(DetectFile).replace(os.getcwd(), os.curdir).split('.tar.gz')[0], exist_ok=True)
 				with tarfile.open(self.filePath(DetectFile), 'r') as ExtractTgz:

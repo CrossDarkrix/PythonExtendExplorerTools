@@ -25,13 +25,13 @@ import py7zr
 import pyqtgraph
 import send2trash
 from PySide6.QtCharts import (QChart, QChartView, QPieSeries, QPieSlice)
-from PySide6.QtCore import (QCoreApplication, QByteArray, QMetaObject, QRect, Qt, Signal, QSize, QFile, QEvent,
-							QFileInfo, QTimer, QLocale, QTranslator, QThread, QDate)
+from PySide6.QtCore import (QCoreApplication, QByteArray, QMetaObject, QRect, Qt, Signal, Slot, QSize, QFile, QEvent,
+							QFileInfo, QTimer, QLocale, QTranslator, QThread, QDate, QObject)
 from PySide6.QtGui import (QFont, QStandardItem, QStandardItemModel, QDesktopServices, QCursor, QPixmap, QPixmapCache,
 						   QIcon, QImage, QGuiApplication, QColor)
 from PySide6.QtWidgets import (QApplication, QCheckBox, QLabel, QListView, QLineEdit, QMainWindow, QPlainTextEdit,
 							   QPushButton, QTabWidget, QTreeView, QWidget, QFileSystemModel, QMenu, QAbstractItemView,
-							   QDialog, QDialogButtonBox, QFileIconProvider, QGridLayout, QScrollArea, QCalendarWidget)
+							   QDialog, QDialogButtonBox, QFileIconProvider, QGridLayout, QScrollArea, QCalendarWidget, QButtonGroup)
 from mutagen.easyid3 import EasyID3
 
 BackupNowPath = [u'']
@@ -215,6 +215,24 @@ class Credit(QDialog):
 		if r.result() == QDialog.Accepted:
 			pass
 
+class UpdateWidget(QObject):
+	TextSignal = Signal(int)
+	ClockSignal = Signal(int)
+	def __init__(self, parent=None):
+		super(UpdateWidget, self).__init__(parent)
+		self.UpdateTimer = QTimer()
+		self.UpdateTimer.timeout.connect(self.update)
+		self.UpdateTimer.start(800)
+		self.ClockTimer = QTimer()
+		self.ClockTimer.timeout.connect(self.clock)
+		self.ClockTimer.start(50)
+
+	def update(self):
+		self.TextSignal.emit(1)
+
+	def clock(self):
+		self.ClockSignal.emit(1)
+
 class SystemInfoWidget(QWidget): # System情報パネル
 	def __init__(self, parent=None):
 		super(SystemInfoWidget, self).__init__(parent)
@@ -318,17 +336,8 @@ class SystemInfoWidget(QWidget): # System情報パネル
 		self.virtualmemoryExplainLabel = QLabel()
 		self.virtualmemoryExplainLabel.setStyleSheet('QLabel{background: #2d2d2d;color: #ededed;}')
 		self.virtualmemoryExplainLabel.setText('仮想メモリー使用量 / 空き容量: ')
-		threading.Thread(target=self.CPUMontor, daemon=True).start()
-		threading.Thread(target=self.MemoryMonitor, daemon=True).start()
-		threading.Thread(target=self.WiFiSpeedRate, daemon=True).start()
-		threading.Thread(target=self.UsedMemory, daemon=True).start()
-		threading.Thread(target=self.FreeMemory, daemon=True).start()
-		threading.Thread(target=self.SwapMemoryUsedPercent, daemon=True).start()
-		threading.Thread(target=self.SwapUsed, daemon=True).start()
-		threading.Thread(target=self.SwapFree, daemon=True).start()
-		threading.Thread(target=self.DiskUsedPercent, daemon=True).start()
-		threading.Thread(target=self.DiskUsed, daemon=True).start()
-		threading.Thread(target=self.DiskFree, daemon=True).start()
+		self.Update = UpdateWidget()
+		self.Update.TextSignal.connect(self.UpdateWidget)
 		self.SystemInfoLayout = QGridLayout()
 		self.SystemInfoLayout.addWidget(self.frame0, 0, 0)
 		self.SystemInfoLayout.addWidget(self.networkLabel, 1, 0, Qt.AlignCenter)
@@ -361,112 +370,112 @@ class SystemInfoWidget(QWidget): # System情報パネル
 		self.setMinimumWidth(600)
 		self.setMaximumWidth(620)
 
+	@Slot(str)
+	def UpdateWidget(self, _):
+		concurrent.futures.ThreadPoolExecutor().submit(self.CPUMontor)
+		concurrent.futures.ThreadPoolExecutor().submit(self.MemoryMonitor)
+		concurrent.futures.ThreadPoolExecutor().submit(self.WiFiSpeedRate)
+		concurrent.futures.ThreadPoolExecutor().submit(self.UsedMemory)
+		concurrent.futures.ThreadPoolExecutor().submit(self.FreeMemory)
+		concurrent.futures.ThreadPoolExecutor().submit(self.SwapMemoryUsedPercent)
+		concurrent.futures.ThreadPoolExecutor().submit(self.SwapUsed)
+		concurrent.futures.ThreadPoolExecutor().submit(self.SwapFree)
+		concurrent.futures.ThreadPoolExecutor().submit(self.DiskUsedPercent)
+		concurrent.futures.ThreadPoolExecutor().submit(self.DiskUsed)
+		concurrent.futures.ThreadPoolExecutor().submit(self.DiskFree)
+
 	def WiFiSpeedRate(self): # 0.8秒毎に更新
 		try:
-			while True:
-				Net_IN1 = psutil.net_io_counters().bytes_recv
-				Net_OUT1 = psutil.net_io_counters().bytes_sent
-				time.sleep(0.8)
-				Net_IN2 = psutil.net_io_counters().bytes_recv
-				Net_OUT2 = psutil.net_io_counters().bytes_sent
-				NETIN = '{}GB'.format(round((Net_IN2 - Net_IN1) / 1073741824, 1))
+			Net_IN1 = psutil.net_io_counters().bytes_recv
+			Net_OUT1 = psutil.net_io_counters().bytes_sent
+			time.sleep(0.5)
+			Net_IN2 = psutil.net_io_counters().bytes_recv
+			Net_OUT2 = psutil.net_io_counters().bytes_sent
+			NETIN = '{}GB'.format(round((Net_IN2 - Net_IN1) / 1073741824, 1))
+			if NETIN[0:2] == '0.':
+				NETIN = '{}MB'.format(round((Net_IN2 - Net_IN1) / 1048576, 1))
 				if NETIN[0:2] == '0.':
-					NETIN = '{}MB'.format(round((Net_IN2 - Net_IN1) / 1048576, 1))
+					NETIN = '{}KB'.format(round((Net_IN2 - Net_IN1) / 1024, 1))
 					if NETIN[0:2] == '0.':
-						NETIN = '{}KB'.format(round((Net_IN2 - Net_IN1) / 1024, 1))
-						if NETIN[0:2] == '0.':
-							NETIN = '{}B'.format((Net_IN2 - Net_IN1))
-				NETOUT = '{}GB'.format(round((Net_OUT2 - Net_OUT1) / 1073741824, 1))
+						NETIN = '{}B'.format((Net_IN2 - Net_IN1))
+			NETOUT = '{}GB'.format(round((Net_OUT2 - Net_OUT1) / 1073741824, 1))
+			if NETOUT[0:2] == '0.':
+				NETOUT = '{}MB'.format(round((Net_OUT2 - Net_OUT1) / 1048576, 1))
 				if NETOUT[0:2] == '0.':
-					NETOUT = '{}MB'.format(round((Net_OUT2 - Net_OUT1) / 1048576, 1))
+					NETOUT = '{}KB'.format(round((Net_OUT2 - Net_OUT1) / 1024, 1))
 					if NETOUT[0:2] == '0.':
-						NETOUT = '{}KB'.format(round((Net_OUT2 - Net_OUT1) / 1024, 1))
-						if NETOUT[0:2] == '0.':
-							NETOUT = '{}B'.format((Net_OUT2 - Net_OUT1))
-				self.network.setText('↓{} /s ↑{} /s'.format(NETIN, NETOUT))
+						NETOUT = '{}B'.format((Net_OUT2 - Net_OUT1))
+			self.network.setText('{} {}'.format('↑{} /s'.format(NETOUT).center(8), '↓{} /s'.format(NETIN).center(8)))
 		except:
 			pass
 
 	def CPUMontor(self): # 0.8秒毎に更新
 		try:
-			while True:
-				self.cpu.setText('{}%'.format(psutil.cpu_percent(interval=0.8)))
+			self.cpu.setText('{}%'.format(psutil.cpu_percent(interval=0.8)))
 		except:
 			pass
 
 	def MemoryMonitor(self): # 0.8秒毎に更新
 		try:
-			while True:
-				self.memoryUsedCapacityPercent.setText('{}%'.format(psutil.virtual_memory().percent))
-				time.sleep(0.8)
+			self.memoryUsedCapacityPercent.setText('{}%'.format(psutil.virtual_memory().percent))
 		except:
 			pass
 
 	def FreeMemory(self): # 0.8秒毎に更新
 		try:
-			while True:
-				MemoryFree = '{}GB'.format(round(psutil.virtual_memory().available / 1073741824, 1))
+			MemoryFree = '{}GB'.format(round(psutil.virtual_memory().available / 1073741824, 1))
+			if MemoryFree[0:2] == '0.':
+				MemoryFree = '{}MB'.format(round(psutil.virtual_memory().available / 1048576, 1))
 				if MemoryFree[0:2] == '0.':
-					MemoryFree = '{}MB'.format(round(psutil.virtual_memory().available / 1048576, 1))
+					MemoryFree = '{}KB'.format(round(psutil.virtual_memory().available / 1024, 1))
 					if MemoryFree[0:2] == '0.':
-						MemoryFree = '{}KB'.format(round(psutil.virtual_memory().available / 1024, 1))
-						if MemoryFree[0:2] == '0.':
-							MemoryFree = '{}B'.format(psutil.virtual_memory().available)
-				self.memoryFree.setText('空き容量: {}GB 中 約{}'.format(round(psutil.virtual_memory().total / 1073741824, 1), MemoryFree))
-				time.sleep(0.8)
+						MemoryFree = '{}B'.format(psutil.virtual_memory().available)
+			self.memoryFree.setText('空き容量: {}GB 中 約{}'.format(round(psutil.virtual_memory().total / 1073741824, 1), MemoryFree))
 		except:
 			pass
 
 	def UsedMemory(self): # 0.8秒毎に更新
 		try:
-			while True:
-				useMemory = '{}GB'.format(round(psutil.virtual_memory().used / 1073741824, 1))
+			useMemory = '{}GB'.format(round(psutil.virtual_memory().used / 1073741824, 1))
+			if useMemory[0:2] == '0.':
+				useMemory = '{}MB'.format(round(psutil.virtual_memory().used / 1048576, 1))
 				if useMemory[0:2] == '0.':
-					useMemory = '{}MB'.format(round(psutil.virtual_memory().used / 1048576, 1))
+					useMemory = '{}KB'.format(round(psutil.virtual_memory().used / 1024, 1))
 					if useMemory[0:2] == '0.':
-						useMemory = '{}KB'.format(round(psutil.virtual_memory().used / 1024, 1))
-						if useMemory[0:2] == '0.':
-							useMemory = '{}B'.format(psutil.virtual_memory().used)
-				self.memoryUsed.setText('使用容量: {}GB 中 約{}'.format(round(psutil.virtual_memory().total / 1073741824, 1), useMemory))
-				time.sleep(0.8)
+						useMemory = '{}B'.format(psutil.virtual_memory().used)
+			self.memoryUsed.setText('使用容量: {}GB 中 約{}'.format(round(psutil.virtual_memory().total / 1073741824, 1), useMemory))
 		except:
 			pass
 
 	def SwapMemoryUsedPercent(self): # 0.8秒毎に更新
 		try:
-			while True:
-				self.virtualMemoryUsedCapacity.setText('{}%'.format(psutil.swap_memory().percent))
-				time.sleep(0.8)
+			self.virtualMemoryUsedCapacity.setText('{}%'.format(psutil.swap_memory().percent))
 		except:
 			pass
 
 	def SwapUsed(self): # 0.8秒毎に更新
 		try:
-			while True:
-				Swpused = '{}GB'.format(round(psutil.swap_memory().used / 1073741824, 1))
+			Swpused = '{}GB'.format(round(psutil.swap_memory().used / 1073741824, 1))
+			if Swpused[0:2] == '0.':
+				Swpused = '{}MB'.format(round(psutil.swap_memory().used / 1048576, 1))
 				if Swpused[0:2] == '0.':
-					Swpused = '{}MB'.format(round(psutil.swap_memory().used / 1048576, 1))
+					Swpused = '{}KB'.format(round(psutil.swap_memory().used / 1024, 1))
 					if Swpused[0:2] == '0.':
-						Swpused = '{}KB'.format(round(psutil.swap_memory().used / 1024, 1))
-						if Swpused[0:2] == '0.':
-							Swpused = '{}B'.format(psutil.swap_memory().used)
-				self.virtualMemoryUsed.setText('使用容量: {}GB 中 約{}'.format(round(psutil.swap_memory().total / 1073741824, 1), Swpused))
-				time.sleep(0.8)
+						Swpused = '{}B'.format(psutil.swap_memory().used)
+			self.virtualMemoryUsed.setText('使用容量: {}GB 中 約{}'.format(round(psutil.swap_memory().total / 1073741824, 1), Swpused))
 		except:
 			pass
 
 	def SwapFree(self): # 0.8秒毎に更新
 		try:
-			while True:
-				SwpFree = '{}GB'.format(round(psutil.swap_memory().free / 1073741824, 1))
+			SwpFree = '{}GB'.format(round(psutil.swap_memory().free / 1073741824, 1))
+			if SwpFree[0:2] == '0.':
+				SwpFree = '{}MB'.format(round(psutil.swap_memory().free / 1048576, 1))
 				if SwpFree[0:2] == '0.':
-					SwpFree = '{}MB'.format(round(psutil.swap_memory().free / 1048576, 1))
+					SwpFree = '{}KB'.format(round(psutil.swap_memory().free / 1024, 1))
 					if SwpFree[0:2] == '0.':
-						SwpFree = '{}KB'.format(round(psutil.swap_memory().free / 1024, 1))
-						if SwpFree[0:2] == '0.':
-							SwpFree = '{}B'.format(psutil.swap_memory().free)
-				self.virtualMemoryFree.setText('空き容量: {}GB 中 約{}'.format(round(psutil.swap_memory().total / 1073741824, 1), SwpFree))
-				time.sleep(0.8)
+						SwpFree = '{}B'.format(psutil.swap_memory().free)
+			self.virtualMemoryFree.setText('空き容量: {}GB 中 約{}'.format(round(psutil.swap_memory().total / 1073741824, 1), SwpFree))
 		except:
 			pass
 
@@ -479,9 +488,7 @@ class SystemInfoWidget(QWidget): # System情報パネル
 		except KeyError:
 			mountPath = '/'
 		try:
-			while True:
-				self.diskUsedCapacity.setText('{}%'.format(psutil.disk_usage(mountPath).percent))
-				time.sleep(0.8)
+			self.diskUsedCapacity.setText('{}%'.format(psutil.disk_usage(mountPath).percent))
 		except:
 			pass
 
@@ -503,18 +510,16 @@ class SystemInfoWidget(QWidget): # System情報パネル
 						TotalDisk = '{}KB'.format(round(psutil.disk_usage(mountPath).total / 1024, 1))
 						if TotalDisk[0:2] == '0.':
 							TotalDisk = '{}B'.format(psutil.disk_usage(mountPath).total)
-			while True:
-				diskUseBytes = '{}TB'.format(round(psutil.disk_usage(mountPath).used / 1099511627776, 1))
+			diskUseBytes = '{}TB'.format(round(psutil.disk_usage(mountPath).used / 1099511627776, 1))
+			if diskUseBytes[0:2] == '0.':
+				diskUseBytes = '{}GB'.format(round(psutil.disk_usage(mountPath).used / 1073741824, 1))
 				if diskUseBytes[0:2] == '0.':
-					diskUseBytes = '{}GB'.format(round(psutil.disk_usage(mountPath).used / 1073741824, 1))
+					diskUseBytes = '{}MB'.format(round(psutil.disk_usage(mountPath).used / 1048576, 1))
 					if diskUseBytes[0:2] == '0.':
-						diskUseBytes = '{}MB'.format(round(psutil.disk_usage(mountPath).used / 1048576, 1))
+						diskUseBytes = '{}KB'.format(round(psutil.disk_usage(mountPath).used / 1024, 1))
 						if diskUseBytes[0:2] == '0.':
-							diskUseBytes = '{}KB'.format(round(psutil.disk_usage(mountPath).used / 1024, 1))
-							if diskUseBytes[0:2] == '0.':
-								diskUseBytes = '{}B'.format(psutil.disk_usage(mountPath).used)
-				self.diskUsed.setText('使用容量: 約{} 中 約{}'.format(TotalDisk, diskUseBytes))
-				time.sleep(0.8)
+							diskUseBytes = '{}B'.format(psutil.disk_usage(mountPath).used)
+			self.diskUsed.setText('使用容量: 約{} 中 約{}'.format(TotalDisk, diskUseBytes))
 		except:
 			pass
 
@@ -536,32 +541,30 @@ class SystemInfoWidget(QWidget): # System情報パネル
 						TotalDisk = '{}KB'.format(round(psutil.disk_usage(mountPath).total / 1024, 1))
 						if TotalDisk[0:2] == '0.':
 							TotalDisk = '{}B'.format(psutil.disk_usage(mountPath).total)
-			while True:
-				diskFreeBytes = '{}TB'.format(round(psutil.disk_usage(mountPath).free / 1099511627776, 1))
+			diskFreeBytes = '{}TB'.format(round(psutil.disk_usage(mountPath).free / 1099511627776, 1))
+			if diskFreeBytes[0:2] == '0.':
+				diskFreeBytes = '{}GB'.format(round(psutil.disk_usage(mountPath).free / 1073741824, 1))
 				if diskFreeBytes[0:2] == '0.':
-					diskFreeBytes = '{}GB'.format(round(psutil.disk_usage(mountPath).free / 1073741824, 1))
+					diskFreeBytes = '{}MB'.format(round(psutil.disk_usage(mountPath).free / 1048576, 1))
 					if diskFreeBytes[0:2] == '0.':
-						diskFreeBytes = '{}MB'.format(round(psutil.disk_usage(mountPath).free / 1048576, 1))
+						diskFreeBytes = '{}KB'.format(round(psutil.disk_usage(mountPath).free / 1024, 1))
 						if diskFreeBytes[0:2] == '0.':
-							diskFreeBytes = '{}KB'.format(round(psutil.disk_usage(mountPath).free / 1024, 1))
-							if diskFreeBytes[0:2] == '0.':
-								diskFreeBytes = '{}KB'.format(psutil.disk_usage(mountPath).free)
-				self.diskFree.setText('空き容量: 約{} 中 約{}'.format(TotalDisk, diskFreeBytes))
-				time.sleep(0.8)
+							diskFreeBytes = '{}KB'.format(psutil.disk_usage(mountPath).free)
+			self.diskFree.setText('空き容量: 約{} 中 約{}'.format(TotalDisk, diskFreeBytes))
 		except:
 			pass
 
 class DiskPieWidget(QWidget): # ディスクの使用状況
 	def __init__(self):
 		super(DiskPieWidget, self).__init__()
-		OutOfThread0.started.connect(self.updateSet)
+		self.UpdateWidget = UpdateWidget()
+		self.UpdateWidget.TextSignal.connect(self.updateSet)
 		self.setStyleSheet('QWidget{background: #292828;color: #ededed;border: 0px #292828;}')
 		self.setGraph()
 
-	def updateSet(self):
-		self.DataUpdate = QTimer()
-		self.DataUpdate.timeout.connect(self.setGraph)
-		self.DataUpdate.start(5000)
+	@Slot(int)
+	def updateSet(self, _):
+		concurrent.futures.ThreadPoolExecutor().submit(self.setGraph)
 
 	def setGraph(self):
 		DiskWidgets = []
@@ -2660,9 +2663,9 @@ class FileSystemListView(QListView):
 					os.chdir(current_paths)
 					for info in ExtractZip.infolist():
 						try:
-							info.filename = info.orig_filename.encode('cp437').decode(enc)
+							info.filename = info.orig_filename.encode('cp437').decode('utf-8')
 						except:
-							info.filename = info.orig_filename.encode('utf-8').decode(enc)
+							info.filename = info.orig_filename.encode('utf-8').decode('utf-8')
 						if os.sep != "/" and os.sep in info.filename:
 							info.filename = info.filename.replace(os.sep, "/")
 						ExtractZip.extract(info)
@@ -2765,117 +2768,11 @@ class ArchiveDialog(QDialog):
 		self.Popup.addWidget(self.NoneLabel2, 2, 1)
 		self.Popup.addWidget(self.NoneLabel3, 2, 2)
 		self.setLayout(self.Popup)
-		self.ArchiveType1.stateChanged.connect(self.CheckModes)
-		self.ArchiveType2.stateChanged.connect(self.CheckModes)
-		self.ArchiveType3.stateChanged.connect(self.CheckModes)
-
-	def CheckMode3(self):
-		if self.ArchiveType3.checkState() == Qt.Checked:
-			self.ArchiveType1.setCheckState(Qt.Unchecked)
-			self.ArchiveType2.setCheckState(Qt.Unchecked)
-			if not self.ArchiveInput.text() == '':
-				self.ArchiveInput.setText(
-					self.ArchiveInput.text().replace(self.ArchiveInput.text().split('.')[-1], '7z').replace('.tar', ''))
-			else:
-				self.ArchiveInput.setText('Archive.7z')
-
-	def CheckMode2(self):
-		if self.ArchiveType2.checkState() == Qt.Checked:
-			self.ArchiveType1.setCheckState(Qt.Unchecked)
-			self.ArchiveType3.setCheckState(Qt.Unchecked)
-			if not self.ArchiveInput.text() == '':
-				if self.ArchiveInput.text().split('.')[-1] == 'zip' or self.ArchiveInput.text().split('.')[-1] == '7z':
-					self.ArchiveInput.setText(
-						self.ArchiveInput.text().replace(self.ArchiveInput.text().split('.')[-1], 'tar.gz').replace(
-							'.tar.tar', ''))
-			else:
-				self.ArchiveInput.setText('Archive.tar.gz')
-
-	def CheckMode1(self):
-		if self.ArchiveType1.checkState() == Qt.Checked:
-			self.ArchiveType2.setCheckState(Qt.Unchecked)
-			self.ArchiveType3.setCheckState(Qt.Unchecked)
-			if not self.ArchiveInput.text() == '':
-				self.ArchiveInput.setText(
-					self.ArchiveInput.text().replace(self.ArchiveInput.text().split('.')[-1], 'zip').replace('.tar', ''))
-			else:
-				self.ArchiveInput.setText('Archive.zip')
-
-	def CheckModeOther0(self):
-		if self.ArchiveType1.checkState() == Qt.Unchecked and OneChecked[0] == '1':
-			self.ArchiveType1.setCheckState(Qt.Checked)
-
-	def CheckModeOther1(self):
-		if self.ArchiveType2.checkState() == Qt.Unchecked and OneChecked2[0] == '1':
-			self.ArchiveType2.setCheckState(Qt.Checked)
-
-	def CheckModeOther2(self):
-		if self.ArchiveType3.checkState() == Qt.Unchecked and OneChecked3[0] == '1':
-			self.ArchiveType3.setCheckState(Qt.Checked)
-
-	def CheckModeOther3(self):
-		if self.ArchiveType1.checkState() == Qt.Checked and OneChecked2[0] == '1':
-			OneChecked2[0] = '0'
-			OneChecked[0] = '1'
-			self.ArchiveType2.setCheckState(Qt.Unchecked)
-
-	def CheckModeOther4(self):
-		if self.ArchiveType1.checkState() == Qt.Checked and OneChecked3[0] == '1':
-			OneChecked3[0] = '0'
-			OneChecked[0] = '1'
-			self.ArchiveType3.setCheckState(Qt.Unchecked)
-
-	def CheckModeOther5(self):
-		if self.ArchiveType2.checkState() == Qt.Checked and OneChecked[0] == '1':
-			OneChecked[0] = '0'
-			OneChecked2[0] = '1'
-			self.ArchiveType1.setCheckState(Qt.Unchecked)
-
-	def CheckModeOther6(self):
-		if self.ArchiveType3.checkState() == Qt.Checked and OneChecked[0] == '1':
-			OneChecked[0] = '0'
-			OneChecked3[0] = '1'
-			self.ArchiveType1.setCheckState(Qt.Unchecked)
-
-	def CheckModeOther7(self):
-		if self.ArchiveType1.checkState() == Qt.Checked and OneChecked2[0] == '1':
-			OneChecked2[0] = '0'
-			OneChecked[0] = '1'
-			self.ArchiveType2.setCheckState(Qt.Unchecked)
-
-	def CheckModeOther8(self):
-		if self.ArchiveType3.checkState() == Qt.Checked and OneChecked2[0] == '1':
-			OneChecked2[0] = '0'
-			OneChecked3[0] = '1'
-			self.ArchiveType2.setCheckState(Qt.Unchecked)
-
-	def CheckModeOther9(self):
-		if self.ArchiveType1.checkState() == Qt.Checked and OneChecked3[0] == '1':
-			OneChecked3[0] = '0'
-			OneChecked[0] = '1'
-			self.ArchiveType3.setCheckState(Qt.Unchecked)
-
-	def CheckModeOther10(self):
-		if self.ArchiveType2.checkState() == Qt.Checked and OneChecked3[0] == '1':
-			OneChecked3[0] = '0'
-			OneChecked[0] = '1'
-			self.ArchiveType3.setCheckState(Qt.Unchecked)
-
-	def CheckModes(self):
-		self.CheckModeOther0()
-		self.CheckModeOther1()
-		self.CheckModeOther2()
-		self.CheckModeOther3()
-		self.CheckModeOther4()
-		self.CheckModeOther5()
-		self.CheckModeOther6()
-		self.CheckModeOther7()
-		self.CheckModeOther8()
-		self.CheckModeOther9()
-		self.CheckModeOther10()
-		self.CheckMode3()
-		self.CheckMode2()
-		self.CheckMode1()
+		self.ArchiveTypeCheckBoxGroup = QButtonGroup(self)
+		self.ArchiveTypeCheckBoxGroup.setExclusive(True)
+		self.ArchiveTypeCheckBoxGroup.addButton(self.ArchiveType1)
+		self.ArchiveTypeCheckBoxGroup.addButton(self.ArchiveType2)
+		self.ArchiveTypeCheckBoxGroup.addButton(self.ArchiveType3)
 
 	def InputResult(self):
 		return self.ArchiveInput.text()
@@ -3886,9 +3783,8 @@ class Ui_FullTools2(object):
 		self.ClockSecTimehandPen = pyqtgraph.mkPen(width=2, color=(233, 88, 88))
 		self.ClockSecTimehandPen.setCapStyle(Qt.RoundCap)
 		self.ClockSecTimehand = self.ClockMain.plot(pen=self.ClockSecTimehandPen)
-		self.ClockUpdateTime = QTimer()
-		self.ClockUpdateTime.timeout.connect(self.ClockTimeSet)
-		self.ClockUpdateTime.start(50)
+		self.ClockUpdateTime = UpdateWidget()
+		self.ClockUpdateTime.ClockSignal.connect(self.ClockTimeSet)
 		self.Calender = QCalendarWidget(self.tab_3)
 		self.Calender.setObjectName('Calender')
 		self.Calender.setStyleSheet('QCalendarWidget QTableView{background: #1a1a1a;alternate-background-color: #1a1a1a;color: #ededed;} QCalendarWidget QAbstractItemView{selection-background-color: #2d2d2d;alternate-background-color: #1a1a1a;selection-color: #ededed;} QCalendarWidget QMenu{background: #1a1a1a;color: #ededed;} QCalendarWidget QToolButton{background: #1a1a1a;color: #ededed;} QCalendarWidget QWidget{background: #1a1a1a;alternate-background-color: #1a1a1a;color: #ededed;} QCalendarWidget QWidget{background: #1a1a1a;alternate-background-color: #1a1a1a;color: #ededed;}')
@@ -4036,7 +3932,8 @@ class Ui_FullTools2(object):
 			self.Calender.update()
 			upDay[0] = datetime.datetime.now().day
 
-	def ClockTimeSet(self):
+	@Slot(int)
+	def ClockTimeSet(self, _):
 		degrationSec = (datetime.datetime.now().second / 60) * 360
 		degrationMin = (datetime.datetime.now().minute / 60) * 360 + (1 /60) * 360 * (datetime.datetime.now().second / 60)
 		degrationHour = (datetime.datetime.now().hour / 12) * 360 + (1 / 12) * 360 * (datetime.datetime.now().minute / 60)

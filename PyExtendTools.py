@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import ast
+import asyncio
 import concurrent.futures
 import datetime
 import json
@@ -26,7 +27,7 @@ import pyqtgraph
 import send2trash
 from PySide6.QtCharts import (QChart, QChartView, QPieSeries, QPieSlice)
 from PySide6.QtCore import (QCoreApplication, QByteArray, QMetaObject, QRect, Qt, Signal, Slot, QSize, QFile, QEvent,
-							QFileInfo, QTimer, QLocale, QTranslator, QMimeDatabase, QDate, QObject)
+							QFileInfo, QLocale, QTranslator, QMimeDatabase, QDate, QObject)
 from PySide6.QtGui import (QFont, QStandardItem, QStandardItemModel, QDesktopServices, QCursor, QPixmap, QPixmapCache,
 						   QIcon, QImage, QGuiApplication, QColor)
 from PySide6.QtWidgets import (QApplication, QCheckBox, QLabel, QListView, QLineEdit, QMainWindow, QPlainTextEdit,
@@ -220,20 +221,22 @@ class Credit(QDialog):
 class UpdateWidget(QObject):
 	TextSignal = Signal(int)
 	ClockSignal = Signal(int)
+
 	def __init__(self, parent=None):
 		super(UpdateWidget, self).__init__(parent)
-		self.UpdateTimer = QTimer()
-		self.UpdateTimer.timeout.connect(self.update)
-		self.UpdateTimer.start(800)
-		self.ClockTimer = QTimer()
-		self.ClockTimer.timeout.connect(self.clock)
-		self.ClockTimer.start(50)
+		concurrent.futures.ThreadPoolExecutor().submit(asyncio.run, self._clock_update())
+		concurrent.futures.ThreadPoolExecutor().submit(asyncio.run, self._update())
 
-	def update(self):
-		self.TextSignal.emit(1)
+	async def _clock_update(self):
+		while True:
+			self.ClockSignal.emit(1)
+			time.sleep(0.5)
 
-	def clock(self):
-		self.ClockSignal.emit(1)
+	async def _update(self):
+		while True:
+			self.TextSignal.emit(1)
+			time.sleep(0.8)
+
 
 class SystemInfoWidget(QWidget): # System情報パネル
 	def __init__(self, parent=None):
